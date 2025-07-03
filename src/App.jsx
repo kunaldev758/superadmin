@@ -11,9 +11,9 @@ function App() {
   return (
     <BrowserRouter>
     <Routes>
-      <Route path="/superadmin/login" element={<SuperAdminLogin />} />
-      <Route path="/superadmin/*" element={<SuperAdminApp />} />
-      <Route path="/superadmin/dashboard" element={<SuperAdminApp />} />
+      <Route path="/login" element={<SuperAdminLogin />} />
+      <Route path="/*" element={<SuperAdminApp />} />
+      <Route path="/dashboard" element={<SuperAdminApp />} />
     </Routes>
     </BrowserRouter>
   )

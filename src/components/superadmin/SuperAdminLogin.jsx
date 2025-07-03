@@ -46,7 +46,7 @@ const SuperAdminLogin = ({ onLogin }) => {
         if (onLogin) {
           onLogin();
         } else {
-          window.location.href = '/superadmin/dashboard';
+          window.location.href = '/dashboard';
         }
       } else {
         setError(data.message || 'Login failed');

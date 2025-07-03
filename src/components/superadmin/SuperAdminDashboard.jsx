@@ -64,7 +64,7 @@ const SuperAdminDashboard = ({ onNavigate }) => {
   const handleLogout = () => {
     localStorage.removeItem('superAdminToken');
     localStorage.removeItem('superAdminData');
-    window.location.href = '/superadmin/login';
+    window.location.href = '/login';
   };
 
   const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
