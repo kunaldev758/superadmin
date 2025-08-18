@@ -7,16 +7,13 @@ import {
   Calendar,
   MessageSquare,
   UserCog,
-  Activity,
-  ChevronRight,
-  RotateCw
+  RotateCw,
+  ChevronRight
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 
 const ClientListView = ({ onViewDetails }) => {
   const [clients, setClients] = useState([]);
@@ -28,12 +25,10 @@ const ClientListView = ({ onViewDetails }) => {
   const [sortOrder, setSortOrder] = useState('desc');
 
   const apiUrl = import.meta.env.VITE_API_URL;
-  console.log(apiUrl,"apiUrl")
 
   useEffect(() => {
     fetchClients();
   }, []);
-
 
   const fetchClients = async () => {
     try {
@@ -46,14 +41,14 @@ const ClientListView = ({ onViewDetails }) => {
         },
       });
 
-     if (response.ok) {
+      if (response.ok) {
         const data = await response.json();
         setClients(data.data);
       } else {
         console.error('Failed to fetch clients');
       }
-    } catch {
-      console.error('Network error occurred');
+    } catch (error) {
+      console.error('Network error occurred:', error);
     } finally {
       setLoading(false);
     }
@@ -67,35 +62,47 @@ const ClientListView = ({ onViewDetails }) => {
     });
   };
 
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const filteredClients = clients.filter(client =>
     client.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.userId?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.pineconeIndexName?.toLowerCase().includes(searchTerm.toLowerCase())
+    client.plan?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const sortedClients = [...filteredClients].sort((a, b) => {
     let aValue, bValue;
     
     switch (sortBy) {
-      case 'name':
-        aValue = a.userId?.name || '';
-        bValue = b.userId?.name || '';
-        break;
       case 'email':
         aValue = a.userId?.email || '';
         bValue = b.userId?.email || '';
         break;
-      case 'conversations':
-        aValue = a.metrics?.totalConversations || 0;
-        bValue = b.metrics?.totalConversations || 0;
+      case 'plan':
+        aValue = a.plan || '';
+        bValue = b.plan || '';
         break;
       case 'agents':
-        aValue = a.metrics?.agentCount || 0;
-        bValue = b.metrics?.agentCount || 0;
+        aValue = a.usageDetails?.totalAgents || 0;
+        bValue = b.usageDetails?.totalAgents || 0;
         break;
-      case 'credits':
-        aValue = a.credits?.total || 0;
-        bValue = b.credits?.total || 0;
+      case 'conversations':
+        aValue = a.usageDetails?.totalConversations || 0;
+        bValue = b.usageDetails?.totalConversations || 0;
+        break;
+      case 'contentSize':
+        aValue = a.currentDataSize || 0;
+        bValue = b.currentDataSize || 0;
+        break;
+      case 'totalAmountPaid':
+        aValue = a.totalAmountPaid || 0;
+        bValue = b.totalAmountPaid || 0;
         break;
       default:
         aValue = new Date(a.createdAt);
@@ -120,6 +127,32 @@ const ClientListView = ({ onViewDetails }) => {
     } else {
       setSortBy(field);
       setSortOrder('desc');
+    }
+  };
+
+  const getPlanBadgeVariant = (plan) => {
+    switch (plan?.toLowerCase()) {
+      case 'premium':
+        return 'default';
+      case 'pro':
+        return 'secondary';
+      case 'free':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getStatusBadgeVariant = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'default';
+      case 'inactive':
+        return 'secondary';
+      case 'cancelled':
+        return 'destructive';
+      default:
+        return 'outline';
     }
   };
 
@@ -153,75 +186,15 @@ const ClientListView = ({ onViewDetails }) => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Summary Cards - Colorful */}
-        {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-              <div className="p-3 bg-blue-100 rounded-lg mr-4">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-medium text-blue-800">Total Clients</CardTitle>
-                <div className="text-2xl font-bold text-blue-900">{clients.length}</div>
-                <p className="text-xs text-blue-600">Registered clients</p>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-              <div className="p-3 bg-green-100 rounded-lg mr-4">
-                <Activity className="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-medium text-green-800">Active Chats</CardTitle>
-                <div className="text-2xl font-bold text-green-900">
-                  {clients.reduce((sum, client) => sum + (client.metrics?.activeConversations || 0), 0)}
-                </div>
-                <p className="text-xs text-green-600">Currently open</p>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-              <div className="p-3 bg-purple-100 rounded-lg mr-4">
-                <UserCog className="h-6 w-6 text-purple-600" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-medium text-purple-800">Total Agents</CardTitle>
-                <div className="text-2xl font-bold text-purple-900">
-                  {clients.reduce((sum, client) => sum + (client.metrics?.agentCount || 0), 0)}
-                </div>
-                <p className="text-xs text-purple-600">Across all clients</p>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-              <div className="p-3 bg-orange-100 rounded-lg mr-4">
-                <MessageSquare className="h-6 w-6 text-orange-600" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-medium text-orange-800">Total Messages</CardTitle>
-                <div className="text-2xl font-bold text-orange-900">
-                  {clients.reduce((sum, client) => sum + (client.metrics?.totalMessages || 0), 0)}
-                </div>
-                <p className="text-xs text-orange-600">All conversations</p>
-              </div>
-            </CardHeader>
-          </Card>
-        </div> */}
-
-        {/* Clients Table */}
-        <div className='text-left mb-4'>
+        {/* Header Info */}
+        <div className='text-left mb-6'>
           <h4 className='text-lg font-bold'>Client Directory</h4>
           <p className='text-sm text-muted-foreground'>Manage and monitor all registered clients in your system</p>
         </div>
+
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center mt-4">
+            <div className="flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-muted-foreground">
                   Show {itemsPerPage} entries per page
@@ -244,7 +217,7 @@ const ClientListView = ({ onViewDetails }) => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search by name, email, or index..."
+                  placeholder="Search by email or plan..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 w-80"
@@ -257,21 +230,21 @@ const ClientListView = ({ onViewDetails }) => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50">
-                    {/* <th 
-                      onClick={() => handleSort('name')}
-                      className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>Client Name</span>
-                        <ArrowUpDown className="w-4 h-4" />
-                      </div>
-                    </th> */}
                     <th 
                       onClick={() => handleSort('email')}
                       className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
                     >
                       <div className="flex items-center space-x-1">
                         <span>Email</span>
+                        <ArrowUpDown className="w-4 h-4" />
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('plan')}
+                      className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Plan</span>
                         <ArrowUpDown className="w-4 h-4" />
                       </div>
                     </th>
@@ -294,11 +267,11 @@ const ClientListView = ({ onViewDetails }) => {
                       </div>
                     </th>
                     <th 
-                      onClick={() => handleSort('credits')}
+                      onClick={() => handleSort('contentSize')}
                       className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
                     >
                       <div className="flex items-center space-x-1">
-                        <span>Credits</span>
+                        <span>Storage Used</span>
                         <ArrowUpDown className="w-4 h-4" />
                       </div>
                     </th>
@@ -308,6 +281,17 @@ const ClientListView = ({ onViewDetails }) => {
                     >
                       <div className="flex items-center space-x-1">
                         <span>Joined</span>
+                        <ArrowUpDown className="w-4 h-4" />
+                      </div>
+                    </th>
+                    <th className="text-left p-4 font-medium">Plan Status</th>
+                    <th className="text-left p-4 font-medium">Payment Status</th>
+                    <th 
+                      onClick={() => handleSort('totalAmountPaid')}
+                      className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Total Paid</span>
                         <ArrowUpDown className="w-4 h-4" />
                       </div>
                     </th>
@@ -322,48 +306,34 @@ const ClientListView = ({ onViewDetails }) => {
                         index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                       }`}
                     >
-                      {/* <td className="p-4">
-                        <div className="flex items-center space-x-3">
-                          <Avatar>
-                            <AvatarFallback className="bg-primary/10 text-primary">
-                              {client.details?.email[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">
-                              {client.details?.email || 'Unknown'}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              ID: {client._id.slice(-6)}
-                            </div>
-                          </div>
-                        </div>
-                      </td> */}
                       <td className="p-4">
-                        <div>
-                          <div className="font-medium text-left">{client?.details?.email}</div>
-                          {/* <div className="text-sm text-muted-foreground">{client.details?.email }</div> */}
-                        </div>
+                        <div className="font-medium">{client?.email || 'N/A'}</div>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant={getPlanBadgeVariant(client.plan)}>
+                          {client.plan || 'Free'}
+                        </Badge>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center">
                           <UserCog className="w-4 h-4 text-muted-foreground mr-1" />
-                          <span>{client.metrics?.agentCount || 0}</span>
+                          <span>{client.usageDetails?.totalAgents || 0}</span>
+                          <span className="text-xs text-muted-foreground ml-1">
+                            /{client.usageDetails?.maxAgents || 0}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center">
+                          <MessageSquare className="w-4 h-4 text-muted-foreground mr-1" />
+                          <span>{client.usageDetails?.totalConversations || 0}</span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div>
-                          <div>Total: {client.metrics?.totalConversations || 0}</div>
-                          <div className="text-sm text-green-600">
-                            Active: {client.metrics?.activeConversations || 0}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div>
-                          <div>{client.credits?.total?.toLocaleString() || 0}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Used: {client.credits?.used?.toLocaleString() || 0}
+                          <div className="text-sm">{formatFileSize(client.currentDataSize)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            /{formatFileSize(client.usageDetails?.maxStorage)}
                           </div>
                         </div>
                       </td>
@@ -374,6 +344,21 @@ const ClientListView = ({ onViewDetails }) => {
                         </div>
                       </td>
                       <td className="p-4">
+                        <Badge variant={getStatusBadgeVariant(client.planStatus)}>
+                          {client.planStatus || 'Active'}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant={client.paymentStatus === 'paid' ? 'default' : 'secondary'}>
+                          {client.paymentStatus || 'Unpaid'}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <div className="font-medium">
+                          ${client.totalAmountPaid || 0}
+                        </div>
+                      </td>
+                      <td className="p-4">
                         <Button
                           onClick={() => onViewDetails(client._id)}
                           variant="ghost"
@@ -381,7 +366,7 @@ const ClientListView = ({ onViewDetails }) => {
                           className="hover:bg-primary/10"
                         >
                           <Eye className="w-4 h-4 mr-2" />
-                          View Details
+                          View
                           <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
                       </td>
@@ -396,14 +381,14 @@ const ClientListView = ({ onViewDetails }) => {
                 <Users className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-sm font-medium">No clients found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {searchTerm ? 'Try adjusting your search criteria.' : 'Get started by adding your first client.'}
+                  {searchTerm ? 'Try adjusting your search criteria.' : 'No clients registered yet.'}
                 </p>
               </div>
             )}
 
             {/* Pagination */}
             {sortedClients.length > 0 && (
-              <div className="flex items-center justify-between px-2 py-4 bg-gray-50 rounded-b-lg mt-2">
+              <div className="flex items-center justify-between px-2 py-4 bg-gray-50 rounded-b-lg mt-4">
                 <div className="text-sm text-muted-foreground">
                   Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedClients.length)} of {sortedClients.length} results
                 </div>

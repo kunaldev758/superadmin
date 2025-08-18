@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import SuperAdminLogin from './SuperAdminLogin';
 import SuperAdminDashboard from './SuperAdminDashboard';
 import ClientManagement from './ClientManagement';
+import PlanManagementPanel from './PlanManagementPanel';
 
 const SuperAdminApp = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -48,6 +49,7 @@ const SuperAdminApp = () => {
   const navigationItems = [
     { id: 'dashboard', name: 'Dashboard', icon: Home },
     { id: 'clients', name: 'Clients', icon: Users },
+    { id: 'plans', name: 'Plan Management', icon: Shield },
     // { id: 'agents', name: 'Agents', icon: UserCog },
     // { id: 'conversations', name: 'Conversations', icon: MessageSquare },
   ];
@@ -141,6 +143,9 @@ const SuperAdminApp = () => {
         )}
         {currentView === 'clients' && (
           <ClientManagement />
+        )}
+        {currentView === 'plans' && (
+          <PlanManagementPanel />
         )}
         {currentView === 'agents' && (
           <div className="p-8">

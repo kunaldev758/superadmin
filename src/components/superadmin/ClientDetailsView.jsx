@@ -5,45 +5,34 @@ import {
   UserCog, 
   MessageSquare, 
   Database, 
-  Activity,
   Calendar,
   Mail,
-  CreditCard,
-  FileText,
-  Globe,
-  Upload,
-  MessageCircle,
-  Bot,
-  Users,
-  Eye,
-  Clock,
-  CheckCircle,
   XCircle,
-  AlertCircle,
   HardDrive,
-  Zap,
-  TrendingUp,
-  BarChart3
+  BarChart3,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 
 const ClientDetailsView = ({ clientId, onBack }) => {
   const [clientData, setClientData] = useState(null);
+  const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [agentsLoading, setAgentsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [cancelLoading, setCancelLoading] = useState(false);
   const apiUrl = import.meta.env.VITE_API_URL;
 
   const fetchClientDetails = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('superAdminToken');
-      const response = await fetch(`${apiUrl}/clients/${clientId}`, {
+      const response = await fetch(`${apiUrl}/clients`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -52,7 +41,13 @@ const ClientDetailsView = ({ clientId, onBack }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setClientData(data.data);
+        const client = data.data.find(c => c._id === clientId);
+        if (client) {
+          console.log(client,"this is Client Data")
+          setClientData(client);
+        } else {
+          setError('Client not found');
+        }
       } else {
         setError('Failed to fetch client details');
       }
@@ -61,13 +56,73 @@ const ClientDetailsView = ({ clientId, onBack }) => {
     } finally {
       setLoading(false);
     }
-  }, [clientId]);
+  }, [clientId, apiUrl]);
+
+  const fetchAgents = useCallback(async () => {
+    if (!clientId) return;
+    
+    try {
+      setAgentsLoading(true);
+      const token = localStorage.getItem('superAdminToken');
+      const response = await fetch(`${apiUrl}/agent/${clientId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAgents(data.data.agents || []);
+      } else {
+        console.error('Failed to fetch agents');
+      }
+    } catch (error) {
+      console.error('Network error occurred:', error);
+    } finally {
+      setAgentsLoading(false);
+    }
+  }, [clientId, apiUrl]);
+
+  const cancelSubscription = async () => {
+    if (!clientId) return;
+    
+    try {
+      setCancelLoading(true);
+      const token = localStorage.getItem('superAdminToken');
+      const response = await fetch(`${apiUrl}/cancel/sunscription/${clientId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        alert('Subscription cancelled successfully');
+        fetchClientDetails(); // Refresh client data
+      } else {
+        alert('Failed to cancel subscription');
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      alert('Error cancelling subscription');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (clientId) {
       fetchClientDetails();
     }
   }, [clientId, fetchClientDetails]);
+
+  useEffect(() => {
+    if (activeTab === 'agents' && clientId) {
+      fetchAgents();
+    }
+  }, [activeTab, clientId, fetchAgents]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -80,41 +135,26 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   };
 
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 B';
+    if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getTrainingTypeLabel = (type) => {
-    const types = {
-      0: 'Web Page',
-      1: 'File',
-      2: 'Snippet',
-      3: 'FAQ'
-    };
-    return types[type] || 'Unknown';
-  };
-
-  const getTrainingStatusLabel = (status) => {
-    const statuses = {
-      1: 'Listed',
-      2: 'Crawled',
-      3: 'Minified',
-      4: 'Mapped'
-    };
-    return statuses[status] || 'Unknown';
-  };
-
-  const getStatusVariant = (status) => {
-    const variants = {
-      1: 'secondary',
-      2: 'default',
-      3: 'outline',
-      4: 'default'
-    };
-    return variants[status] || 'secondary';
+  const getStatusBadgeVariant = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'default';
+      case 'approved':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'rejected':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
   };
 
   if (loading) {
@@ -142,25 +182,9 @@ const ClientDetailsView = ({ clientId, onBack }) => {
     );
   }
 
-  const messageChartData = [
-    { name: 'Bot', value: clientData?.messages?.bot || 0, color: '#8B5CF6' },
-    { name: 'Agent', value: clientData?.messages?.agent || 0, color: '#06B6D4' },
-    { name: 'Visitor', value: clientData?.messages?.visitor || 0, color: '#10B981' },
-    { name: 'Assistant', value: clientData?.messages?.assistant || 0, color: '#F59E0B' }
-  ];
-
-  const trainingStatsData = [
-    { name: 'Web Pages', count: clientData?.content?.stats?.webPage || 0 },
-    { name: 'Files', count: clientData?.content?.stats?.file || 0 },
-    { name: 'Snippets', count: clientData?.content?.stats?.snippet || 0 },
-    { name: 'FAQs', count: clientData?.content?.stats?.faq || 0 }
-  ];
-
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart3 },
     { id: 'agents', name: 'Agents', icon: UserCog },
-    { id: 'conversations', name: 'Conversations', icon: MessageSquare },
-    { id: 'content', name: 'Training Content', icon: Database }
   ];
 
   return (
@@ -182,17 +206,27 @@ const ClientDetailsView = ({ clientId, onBack }) => {
               <div className="flex items-center">
                 <Avatar className="mr-3">
                   <AvatarFallback className="bg-primary/10 text-primary">
-                    {clientData?.client?.userId?.email?.charAt(0)?.toUpperCase() || 'U'}
+                    {clientData?.email?.charAt(0)?.toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  {/* <h1 className="text-xl font-bold">
-                    {clientData?.client?.userId?.name || 'Unknown Client'}
-                  </h1> */}
-                  <p className="text-sm text-muted-foreground">{clientData?.client?.userId?.email}</p>
+                  <p className="text-sm text-muted-foreground">{clientData?.email}</p>
+                  <p className="text-xs text-muted-foreground">Plan: {clientData?.plan || 'Free'}</p>
                 </div>
               </div>
             </div>
+            {clientData?.plan !== 'free' && (
+              <Button
+                onClick={cancelSubscription}
+                variant="destructive"
+                size="sm"
+                disabled={cancelLoading}
+                className="bg-red-500 text-white hover:bg-red-600"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {cancelLoading ? 'Cancelling...' : 'Cancel Subscription'}
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -206,37 +240,49 @@ const ClientDetailsView = ({ clientId, onBack }) => {
               <UserCog className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{clientData?.agents?.length || 0}</div>
+              <div className="text-2xl font-bold">{clientData?.usageDetails?.totalAgents || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                of {clientData?.usageDetails?.maxAgents || 0} allowed
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Conversations</CardTitle>
+              <CardTitle className="text-sm font-medium">Conversations</CardTitle>
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{clientData?.conversations?.stats?.total || 0}</div>
+              <div className="text-2xl font-bold">{clientData?.usageDetails?.totalConversations || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                of {clientData?.usageDetails?.maxQueries || 0} allowed
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Chats</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{clientData?.conversations?.stats?.open || 0}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Content Size</CardTitle>
+              <CardTitle className="text-sm font-medium">Storage Used</CardTitle>
               <HardDrive className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatFileSize(clientData?.content?.size || 0)}</div>
+              <div className="text-2xl font-bold">{formatFileSize(clientData?.currentDataSize)}</div>
+              <p className="text-xs text-muted-foreground">
+                of {formatFileSize(clientData?.usageDetails?.maxStorage)} allowed
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+              <HardDrive className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${clientData?.totalAmountPaid || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                {clientData?.billingCycle || 'monthly'} billing
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -272,347 +318,179 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                       <CardTitle>Client Information</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {/* <div className="flex items-center">
-                        <User className="w-5 h-5 text-muted-foreground mr-3" />
-                        <span className="text-muted-foreground">Name:</span>
-                        <span className="ml-2 font-medium">{clientData?.client?.userId?.name}</span>
-                      </div> */}
                       <div className="flex items-center">
                         <Mail className="w-5 h-5 text-muted-foreground mr-3" />
                         <span className="text-muted-foreground">Email:</span>
-                        <span className="ml-2 font-medium">{clientData?.client?.userId?.email}</span>
+                        <span className="ml-2 font-medium">{clientData?.email}</span>
                       </div>
                       <div className="flex items-center">
                         <Calendar className="w-5 h-5 text-muted-foreground mr-3" />
                         <span className="text-muted-foreground">Joined:</span>
-                        <span className="ml-2 font-medium">{formatDate(clientData?.client?.createdAt)}</span>
+                        <span className="ml-2 font-medium">{formatDate(clientData?.createdAt)}</span>
                       </div>
                       <div className="flex items-center">
                         <Database className="w-5 h-5 text-muted-foreground mr-3" />
-                        <span className="text-muted-foreground">Index:</span>
-                        <span className="ml-2 font-medium text-sm">{clientData?.client?.pineconeIndexName}</span>
+                        <span className="text-muted-foreground">Plan:</span>
+                        <Badge variant="outline" className="ml-2">{clientData?.plan || 'Free'}</Badge>
+                      </div>
+                      <div className="flex items-center">
+                        <Database className="w-5 h-5 text-muted-foreground mr-3" />
+                        <span className="text-muted-foreground">Plan Status:</span>
+                        <Badge variant={getStatusBadgeVariant(clientData?.planStatus)} className="ml-2">
+                          {clientData?.planStatus || 'Active'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center">
+                        <Database className="w-5 h-5 text-muted-foreground mr-3" />
+                        <span className="text-muted-foreground">Payment Status:</span>
+                        <Badge variant={clientData?.paymentStatus === 'paid' ? 'default' : 'secondary'} className="ml-2">
+                          {clientData?.paymentStatus || 'Unpaid'}
+                        </Badge>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Credits & Usage</CardTitle>
+                      <CardTitle>Usage Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Credits:</span>
-                        <span className="font-medium">{clientData?.client?.credits?.total?.toLocaleString()}</span>
+                        <span className="text-muted-foreground">Storage Used:</span>
+                        <span className="font-medium">{formatFileSize(clientData?.currentDataSize)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Used Credits:</span>
-                        <span className="font-medium">{clientData?.client?.credits?.used?.toLocaleString()}</span>
+                        <span className="text-muted-foreground">Storage Limit:</span>
+                        <span className="font-medium">{formatFileSize(clientData?.usageDetails?.maxStorage)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Remaining:</span>
-                        <span className="font-medium text-green-600">
-                          {((clientData?.client?.credits?.total || 0) - (clientData?.client?.credits?.used || 0)).toLocaleString()}
+                        <span className="text-muted-foreground">Agents:</span>
+                        <span className="font-medium">
+                          {clientData?.usageDetails?.totalAgents || 0} / {clientData?.usageDetails?.maxAgents || 0}
                         </span>
                       </div>
-                      <div className="mt-4">
-                        <div className="bg-secondary rounded-full h-2">
-                          <div 
-                            className="bg-primary h-2 rounded-full"
-                            style={{
-                              width: `${((clientData?.client?.credits?.used || 0) / (clientData?.client?.credits?.total || 1)) * 100}%`
-                            }}
-                          ></div>
-                        </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Conversations:</span>
+                        <span className="font-medium">
+                          {clientData?.usageDetails?.totalConversations || 0} / {clientData?.usageDetails?.maxQueries || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Pages Added:</span>
+                        <span className="font-medium">
+                          {clientData?.pagesAdded?.success || 0} success, {clientData?.pagesAdded?.failed || 0} failed
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Files Added:</span>
+                        <span className="font-medium">{clientData?.filesAdded || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">FAQs Added:</span>
+                        <span className="font-medium">{clientData?.faqsAdded || 0}</span>
                       </div>
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Charts */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card>
+                {/* Upgrade Status */}
+                {(clientData?.upgradePlanStatus?.storageLimitExceeded || 
+                  clientData?.upgradePlanStatus?.agentLimitExceeded || 
+                  clientData?.upgradePlanStatus?.chatLimitExceeded) && (
+                  <Card className="border-orange-200 bg-orange-50">
                     <CardHeader>
-                      <CardTitle>Message Distribution</CardTitle>
+                      <CardTitle className="flex items-center text-orange-800">
+                        <AlertTriangle className="w-5 h-5 mr-2" />
+                        Upgrade Alerts
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                          <Pie
-                            data={messageChartData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={40}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {messageChartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="flex justify-center space-x-4 mt-4">
-                        {messageChartData.map((item) => (
-                          <div key={item.name} className="flex items-center">
-                            <div 
-                              className="w-3 h-3 rounded-full mr-2"
-                              style={{ backgroundColor: item.color }}
-                            ></div>
-                            <span className="text-sm text-muted-foreground">{item.name}: {item.value}</span>
-                          </div>
-                        ))}
+                      <div className="space-y-2">
+                        {clientData?.upgradePlanStatus?.storageLimitExceeded && (
+                          <div className="text-sm text-orange-700">⚠️ Storage limit exceeded</div>
+                        )}
+                        {clientData?.upgradePlanStatus?.agentLimitExceeded && (
+                          <div className="text-sm text-orange-700">⚠️ Agent limit exceeded</div>
+                        )}
+                        {clientData?.upgradePlanStatus?.chatLimitExceeded && (
+                          <div className="text-sm text-orange-700">⚠️ Chat limit exceeded</div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Training Content Types</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={trainingStatsData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="count" fill="#8B5CF6" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </CardContent>
-                  </Card>
-                </div>
+                )}
               </div>
             )}
 
             {activeTab === 'agents' && (
               <div>
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold">Agents ({clientData?.agents?.length || 0})</h3>
+                  <h3 className="text-lg font-semibold">Agents ({agents.length})</h3>
+                  {agentsLoading && (
+                    <div className="text-sm text-muted-foreground">Loading agents...</div>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {clientData?.agents?.map((agent) => (
-                    <Card key={agent._id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center mb-3">
-                          <Avatar>
-                            <AvatarFallback className="bg-blue-100 text-blue-600">
-                              <UserCog className="w-5 h-5" />
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="ml-3">
-                            <h4 className="font-medium">{agent.name}</h4>
-                            <p className="text-sm text-muted-foreground">{agent.email}</p>
+                
+                {agentsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading agents...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {agents.map((agent) => (
+                      <Card key={agent._id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center mb-3">
+                            <Avatar>
+                              <AvatarFallback className="bg-blue-100 text-blue-600">
+                                <UserCog className="w-5 h-5" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="ml-3">
+                              <h4 className="font-medium">{agent.name}</h4>
+                              <p className="text-sm text-muted-foreground">{agent.email}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Status:</span>
-                            <Badge variant={agent.status === 'approved' ? 'default' : 'secondary'}>
-                              {agent.status}
-                            </Badge>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Status:</span>
+                              <Badge variant={getStatusBadgeVariant(agent.status)}>
+                                {agent.status}
+                              </Badge>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Active:</span>
+                              <span className={agent.isActive ? 'text-green-600' : 'text-muted-foreground'}>
+                                {agent.isActive ? 'Online' : 'Offline'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Created:</span>
+                              <span className="text-muted-foreground">
+                                {formatDate(agent.createdAt)}
+                              </span>
+                            </div>
+                            {agent.lastActive && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Last Active:</span>
+                                <span className="text-muted-foreground">
+                                  {formatDate(agent.lastActive)}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Active:</span>
-                            <span className={agent.isActive ? 'text-green-600' : 'text-muted-foreground'}>
-                              {agent.isActive ? 'Online' : 'Offline'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Last Active:</span>
-                            <span className="text-muted-foreground">
-                              {agent.lastActive ? formatDate(agent.lastActive) : 'Never'}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                {clientData?.agents?.length === 0 && (
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+                
+                {!agentsLoading && agents.length === 0 && (
                   <div className="text-center py-8">
                     <UserCog className="mx-auto h-12 w-12 text-muted-foreground" />
                     <h3 className="mt-2 text-sm font-medium">No agents found</h3>
                     <p className="mt-1 text-sm text-muted-foreground">This client hasn't added any agents yet.</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'conversations' && (
-              <div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center">
-                        <MessageSquare className="w-8 h-8 text-blue-600" />
-                        <div className="ml-3">
-                          <p className="text-sm text-muted-foreground">Total</p>
-                          <p className="text-xl font-bold">{clientData?.conversations?.stats?.total || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center">
-                        <Activity className="w-8 h-8 text-green-600" />
-                        <div className="ml-3">
-                          <p className="text-sm text-muted-foreground">Open</p>
-                          <p className="text-xl font-bold">{clientData?.conversations?.stats?.open || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center">
-                        <CheckCircle className="w-8 h-8 text-purple-600" />
-                        <div className="ml-3">
-                          <p className="text-sm text-muted-foreground">Closed</p>
-                          <p className="text-xl font-bold">{clientData?.conversations?.stats?.closed || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <h4 className="text-md font-semibold mb-4">Active Conversations</h4>
-                <div className="space-y-3">
-                  {clientData?.conversations?.active?.map((conversation) => (
-                    <Card key={conversation._id}>
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium">Conversation #{conversation._id.slice(-6)}</p>
-                            <p className="text-sm text-muted-foreground">Visitor: {conversation.visitor}</p>
-                            {conversation.agentId && (
-                              <p className="text-sm text-blue-600">Agent: {conversation.agentId.name}</p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <Badge variant={conversation.aiChat ? 'default' : 'secondary'}>
-                              {conversation.aiChat ? 'AI Chat' : 'Human Chat'}
-                            </Badge>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {formatDate(conversation.updatedAt)}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                {clientData?.conversations?.active?.length === 0 && (
-                  <div className="text-center py-8">
-                    <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h3 className="mt-2 text-sm font-medium">No active conversations</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">All conversations are currently closed.</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'content' && (
-              <div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center">
-                        <Globe className="w-8 h-8 text-blue-600" />
-                        <div className="ml-3">
-                          <p className="text-sm text-muted-foreground">Web Pages</p>
-                          <p className="text-xl font-bold">{clientData?.content?.stats?.webPage || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center">
-                        <Upload className="w-8 h-8 text-green-600" />
-                        <div className="ml-3">
-                          <p className="text-sm text-muted-foreground">Files</p>
-                          <p className="text-xl font-bold">{clientData?.content?.stats?.file || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center">
-                        <FileText className="w-8 h-8 text-purple-600" />
-                        <div className="ml-3">
-                          <p className="text-sm text-muted-foreground">Snippets</p>
-                          <p className="text-xl font-bold">{clientData?.content?.stats?.snippet || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center">
-                        <MessageCircle className="w-8 h-8 text-orange-600" />
-                        <div className="ml-3">
-                          <p className="text-sm text-muted-foreground">FAQs</p>
-                          <p className="text-xl font-bold">{clientData?.content?.stats?.faq || 0}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card className="mb-6">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Total Content Size:</span>
-                      <span className="font-bold text-lg">{formatFileSize(clientData?.content?.size || 0)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <h4 className="text-md font-semibold mb-4">Training Content Items</h4>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {clientData?.content?.items?.map((item) => (
-                    <Card key={item._id}>
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center mb-2 space-x-2">
-                              <Badge variant={getStatusVariant(item.trainingStatus)}>
-                                {getTrainingStatusLabel(item.trainingStatus)}
-                              </Badge>
-                              <Badge variant="outline">
-                                {getTrainingTypeLabel(item.type)}
-                              </Badge>
-                            </div>
-                            <h5 className="font-medium mb-1">
-                              {item.title || item.webPage?.title || item.file?.fileName || item.snippet?.title || item.faq?.question || 'Untitled'}
-                            </h5>
-                            {item.webPage?.url && (
-                              <p className="text-sm text-blue-600 break-all">{item.webPage.url}</p>
-                            )}
-                            {item.file?.originalFileName && (
-                              <p className="text-sm text-muted-foreground">{item.file.originalFileName}</p>
-                            )}
-                          </div>
-                          <div className="text-right ml-4">
-                            <p className="text-sm text-muted-foreground">
-                              {formatDate(item.lastEdit)}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                {clientData?.content?.items?.length === 0 && (
-                  <div className="text-center py-8">
-                    <Database className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h3 className="mt-2 text-sm font-medium">No training content</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">This client hasn't uploaded any training content yet.</p>
                   </div>
                 )}
               </div>

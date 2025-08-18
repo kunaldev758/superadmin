@@ -14,14 +14,17 @@ import {
   Shield,
   RotateCw,
   Eye,
-  ChevronRight
+  ChevronRight,
+  DollarSign,
+  Database,
+  Zap
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, PieChart as RechartsPieChart, Cell, BarChart, Bar, ResponsiveContainer, Pie } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
-const SuperAdminDashboard = ({ onNavigate }) => {
+const SuperAdminDashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -68,6 +71,23 @@ const SuperAdminDashboard = ({ onNavigate }) => {
   };
 
   const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const formatNumber = (num) => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    }
+    if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K';
+    }
+    return num?.toLocaleString() || '0';
+  };
 
   if (loading) {
     return (
@@ -129,74 +149,9 @@ const SuperAdminDashboard = ({ onNavigate }) => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Navigation */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-            onClick={() => onNavigate?.('clients')}
-          >
-            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-              <Users className="h-8 w-8 text-primary mr-4" />
-              <div className="space-y-1">
-                <CardTitle className="text-lg">Manage Clients</CardTitle>
-                <CardDescription>
-                  View and manage all registered clients, their agents, and training content
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center text-primary hover:text-primary/80">
-                <span className="text-sm font-medium">View Details</span>
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-            onClick={() => onNavigate?.('agents')}
-          >
-            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-              <UserCog className="h-8 w-8 text-primary mr-4" />
-              <div className="space-y-1">
-                <CardTitle className="text-lg">Manage Agents</CardTitle>
-                <CardDescription>
-                  Oversee all agents across all clients and their performance metrics
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center text-primary hover:text-primary/80">
-                <span className="text-sm font-medium">View Details</span>
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-            onClick={() => onNavigate?.('conversations')}
-          >
-            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-              <MessageCircle className="h-8 w-8 text-primary mr-4" />
-              <div className="space-y-1">
-                <CardTitle className="text-lg">View Conversations</CardTitle>
-                <CardDescription>
-                  Monitor all conversations across the platform in real-time
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center text-primary hover:text-primary/80">
-                <span className="text-sm font-medium">View Details</span>
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Overview Stats - Colorful Icons and Text */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Overview Stats - Enhanced with Revenue */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center space-y-0 pb-2">
               <div className="p-3 bg-blue-100 rounded-lg mr-4">
@@ -248,6 +203,99 @@ const SuperAdminDashboard = ({ onNavigate }) => {
               </div>
             </CardHeader>
           </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+              <div className="p-3 bg-emerald-100 rounded-lg mr-4">
+                <DollarSign className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div className='text-left'>
+                <CardTitle className="text-sm font-medium text-emerald-800">Total Revenue</CardTitle>
+                <div className="text-2xl font-bold text-emerald-900">{formatCurrency(dashboardData?.totalRevenue || 0)}</div>
+                <p className="text-xs text-emerald-600">All clients</p>
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
+
+        {/* Usage & Performance Metrics */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Zap className="h-5 w-5 text-blue-500 mr-2" />
+                OpenAI Usage
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Tokens</span>
+                <span className="font-semibold">{formatNumber(dashboardData?.openAIUsage?.totalTokens || 0)}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Cost</span>
+                <span className="font-semibold text-blue-600">{formatCurrency(dashboardData?.openAIUsage?.totalCost || 0)}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Requests</span>
+                <span className="font-semibold text-blue-600">{formatCurrency(dashboardData?.openAIUsage?.totalRequests || 0)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Database className="h-5 w-5 text-purple-500 mr-2" />
+                Qdrant Usage
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Vectors Added</span>
+                <span className="font-semibold">{formatNumber(dashboardData?.qdrantUsage?.totalVectorsAdded || 0)}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Vectors Deleted</span>
+                <span className="font-semibold">{formatNumber(dashboardData?.qdrantUsage?.totalVectorsDeleted || 0)}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Storage</span>
+                <span className="font-semibold text-purple-600">{dashboardData?.qdrantUsage?.totalEstimatedCostStorage || 0} MB</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Requests</span>
+                <span className="font-semibold text-purple-600">{dashboardData?.qdrantUsage?.totalEstimatedCostRequests || 0}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle>Chat Metrics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Today</span>
+                <span className="font-semibold">{dashboardData?.chats?.today || 0}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">This Week</span>
+                <span className="font-semibold">{dashboardData?.chats?.weekly || 0}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">This Month</span>
+                <span className="font-semibold">{dashboardData?.chats?.monthly || 0}</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Chat Statistics */}
@@ -276,57 +324,33 @@ const SuperAdminDashboard = ({ onNavigate }) => {
             </CardContent>
           </Card>
 
-          {/* Time-based Stats */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Chat Metrics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Today</span>
-                  <span className="font-semibold">{dashboardData?.chats?.today}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">This Week</span>
-                  <span className="font-semibold">{dashboardData?.chats?.weekly}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">This Month</span>
-                  <span className="font-semibold">{dashboardData?.chats?.monthly}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Agent Status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Total Agents</span>
-                  <span className="font-semibold">{dashboardData?.agents?.total}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Approved</span>
-                  <span className="font-semibold text-green-600">{dashboardData?.agents?.approved}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Active Now</span>
-                  <span className="font-semibold text-blue-600">{dashboardData?.agents?.active}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Agent Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Agent Status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Agents</span>
+                <span className="font-semibold">{dashboardData?.agents?.total || 0}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Approved</span>
+                <span className="font-semibold text-green-600">{dashboardData?.agents?.approved || 0}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Active Now</span>
+                <span className="font-semibold text-blue-600">{dashboardData?.agents?.active || 0}</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* AI vs Human and Performance */}
+        {/* AI vs Human and Message Distribution */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* AI vs Human Chart */}
+          {/* AI vs Human Chat Ratio */}
           <Card>
             <CardHeader>
               <CardTitle>AI vs Human Chat Ratio</CardTitle>
@@ -358,46 +382,36 @@ const SuperAdminDashboard = ({ onNavigate }) => {
               <div className="flex justify-center space-x-6 mt-4">
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
-                  <span className="text-sm text-muted-foreground">AI ({dashboardData?.chatRatio?.ai?.percentage}%)</span>
+                  <span className="text-sm text-muted-foreground">AI ({dashboardData?.chatRatio?.ai?.percentage || 0}%)</span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-cyan-500 rounded-full mr-2"></div>
-                  <span className="text-sm text-muted-foreground">Human ({dashboardData?.chatRatio?.human?.percentage}%)</span>
+                  <span className="text-sm text-muted-foreground">Human ({dashboardData?.chatRatio?.human?.percentage || 0}%)</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Performance Insights */}
+          {/* Message Distribution */}
           <Card>
             <CardHeader>
-              <CardTitle>AI Performance Insights</CardTitle>
+              <CardTitle>Message Distribution</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="bg-destructive/10 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-destructive font-medium">AI Fallback Rate</span>
-                  <span className="text-destructive font-bold text-xl">{dashboardData?.aiInsights?.fallbackRate}%</span>
-                </div>
-                <p className="text-destructive text-sm">
-                  {dashboardData?.aiInsights?.switchedToHuman} out of {dashboardData?.aiInsights?.totalAiChats} AI chats switched to human
-                </p>
-              </div>
-
               <div className="bg-blue-50 rounded-lg p-4">
-                <h4 className="font-medium text-blue-800 mb-3">Message Distribution</h4>
+                <h4 className="font-medium text-blue-800 mb-3">Message Breakdown</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-blue-600">Bot Messages</span>
-                    <span className="font-semibold">{dashboardData?.messages?.bot}</span>
+                    <span className="font-semibold">{formatNumber(dashboardData?.messages?.bot || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-blue-600">Agent Messages</span>
-                    <span className="font-semibold">{dashboardData?.messages?.agent}</span>
+                    <span className="font-semibold">{formatNumber(dashboardData?.messages?.agent || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-blue-600">Visitor Messages</span>
-                    <span className="font-semibold">{dashboardData?.messages?.visitor}</span>
+                    <span className="font-semibold">{formatNumber(dashboardData?.messages?.visitor || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -405,8 +419,27 @@ const SuperAdminDashboard = ({ onNavigate }) => {
               <div className="bg-green-50 rounded-lg p-4"> 
                 <div className="flex items-center justify-between">
                   <span className="text-green-800 font-medium">Total Messages</span>
-                  <span className="text-green-600 font-bold text-xl">{dashboardData?.messages?.total}</span>
+                  <span className="text-green-600 font-bold text-xl">{formatNumber(dashboardData?.messages?.total || 0)}</span>
                 </div>
+              </div>
+
+              {/* Message Type Chart */}
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={[
+                      { name: 'Bot', value: dashboardData?.messages?.bot || 0 },
+                      { name: 'Agent', value: dashboardData?.messages?.agent || 0 },
+                      { name: 'Visitor', value: dashboardData?.messages?.visitor || 0 }
+                    ]}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#3B82F6" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
