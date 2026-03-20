@@ -89,8 +89,8 @@ const ClientListView = ({ onViewDetails }) => {
         bValue = b.plan || '';
         break;
       case 'agents':
-        aValue = a.usageDetails?.totalAgents || 0;
-        bValue = b.usageDetails?.totalAgents || 0;
+        aValue = (a.usageDetails?.totalAiAgents ?? a.usageDetails?.totalAgents) || 0;
+        bValue = (b.usageDetails?.totalAiAgents ?? b.usageDetails?.totalAgents) || 0;
         break;
       case 'conversations':
         aValue = a.usageDetails?.totalConversations || 0;
@@ -315,12 +315,17 @@ const ClientListView = ({ onViewDetails }) => {
                         </Badge>
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center">
-                          <UserCog className="w-4 h-4 text-muted-foreground mr-1" />
-                          <span>{client.usageDetails?.totalAgents || 0}</span>
-                          <span className="text-xs text-muted-foreground ml-1">
-                            /{client.usageDetails?.maxAgents || 0}
-                          </span>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center text-sm">
+                            <UserCog className="w-4 h-4 text-muted-foreground mr-1 shrink-0" />
+                            <span>AI {(client.usageDetails?.totalAiAgents ?? client.usageDetails?.totalAgents) || 0}</span>
+                            <span className="text-xs text-muted-foreground ml-1">
+                              /{client.usageDetails?.maxAgents || 0}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground pl-5">
+                            Humans {client.usageDetails?.totalHumanAgents ?? 0}
+                          </div>
                         </div>
                       </td>
                       <td className="p-4">

@@ -151,7 +151,7 @@ const SuperAdminDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Overview Stats - Enhanced with Revenue */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center space-y-0 pb-2">
               <div className="p-3 bg-blue-100 rounded-lg mr-4">
@@ -168,12 +168,25 @@ const SuperAdminDashboard = () => {
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center space-y-0 pb-2">
               <div className="p-3 bg-green-100 rounded-lg mr-4">
-                <UserCog className="h-6 w-6 text-green-600" />
+                <Bot className="h-6 w-6 text-green-600" />
               </div>
               <div className='text-left'>
-                <CardTitle className="text-sm font-medium text-green-800">Total Agents</CardTitle>
-                <div className="text-2xl font-bold text-green-900">{dashboardData?.overview?.totalAgents?.toLocaleString() || '0'}</div>
-                <p className="text-xs text-green-600">{dashboardData?.agents?.active} active</p>
+                <CardTitle className="text-sm font-medium text-green-800">AI chatbots</CardTitle>
+                <div className="text-2xl font-bold text-green-900">{dashboardData?.overview?.totalAiAgents?.toLocaleString() || '0'}</div>
+                <p className="text-xs text-green-600">{dashboardData?.agents?.ai?.active ?? 0} active</p>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+              <div className="p-3 bg-teal-100 rounded-lg mr-4">
+                <UserCog className="h-6 w-6 text-teal-600" />
+              </div>
+              <div className='text-left'>
+                <CardTitle className="text-sm font-medium text-teal-800">Human agents</CardTitle>
+                <div className="text-2xl font-bold text-teal-900">{dashboardData?.overview?.totalHumanAgents?.toLocaleString() || '0'}</div>
+                <p className="text-xs text-teal-600">{dashboardData?.agents?.human?.approved ?? 0} approved · {dashboardData?.agents?.human?.active ?? 0} online</p>
               </div>
             </CardHeader>
           </Card>
@@ -327,22 +340,31 @@ const SuperAdminDashboard = () => {
           {/* Agent Status */}
           <Card>
             <CardHeader>
-              <CardTitle>Agent Status</CardTitle>
+              <CardTitle>Agent status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">AI chatbots</div>
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Total Agents</span>
-                <span className="font-semibold">{dashboardData?.agents?.total || 0}</span>
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-semibold">{dashboardData?.agents?.ai?.total ?? 0}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Active</span>
+                <span className="font-semibold text-blue-600">{dashboardData?.agents?.ai?.active ?? 0}</span>
               </div>
               <Separator />
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Human team</div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-semibold">{dashboardData?.agents?.human?.total ?? 0}</span>
+              </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Approved</span>
-                <span className="font-semibold text-green-600">{dashboardData?.agents?.approved || 0}</span>
+                <span className="font-semibold text-green-600">{dashboardData?.agents?.human?.approved ?? 0}</span>
               </div>
-              <Separator />
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Active Now</span>
-                <span className="font-semibold text-blue-600">{dashboardData?.agents?.active || 0}</span>
+                <span className="text-muted-foreground">Online</span>
+                <span className="font-semibold text-teal-600">{dashboardData?.agents?.human?.active ?? 0}</span>
               </div>
             </CardContent>
           </Card>
@@ -353,7 +375,8 @@ const SuperAdminDashboard = () => {
           {/* AI vs Human Chat Ratio */}
           <Card>
             <CardHeader>
-              <CardTitle>AI vs Human Chat Ratio</CardTitle>
+              <CardTitle>AI vs human-handled chats</CardTitle>
+              <CardDescription className="text-xs">Human = conversation assigned a humanAgentId</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-center h-64">
@@ -361,8 +384,8 @@ const SuperAdminDashboard = () => {
                   <RechartsPieChart>
                     <Pie
                       data={[
-                        { name: 'AI Chats', value: dashboardData?.chatRatio?.ai?.count || 0 },
-                        { name: 'Human Chats', value: dashboardData?.chatRatio?.human?.count || 0 }
+                        { name: 'AI-only', value: dashboardData?.chatRatio?.ai?.count || 0 },
+                        { name: 'Human-handled', value: dashboardData?.chatRatio?.human?.count || 0 }
                       ]}
                       cx="50%"
                       cy="50%"
@@ -382,11 +405,11 @@ const SuperAdminDashboard = () => {
               <div className="flex justify-center space-x-6 mt-4">
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
-                  <span className="text-sm text-muted-foreground">AI ({dashboardData?.chatRatio?.ai?.percentage || 0}%)</span>
+                  <span className="text-sm text-muted-foreground">AI-only ({dashboardData?.chatRatio?.ai?.percentage || 0}%)</span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-cyan-500 rounded-full mr-2"></div>
-                  <span className="text-sm text-muted-foreground">Human ({dashboardData?.chatRatio?.human?.percentage || 0}%)</span>
+                  <span className="text-sm text-muted-foreground">Human-handled ({dashboardData?.chatRatio?.human?.percentage || 0}%)</span>
                 </div>
               </div>
             </CardContent>
@@ -402,15 +425,15 @@ const SuperAdminDashboard = () => {
                 <h4 className="font-medium text-blue-800 mb-3">Message Breakdown</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-blue-600">Bot Messages</span>
-                    <span className="font-semibold">{formatNumber(dashboardData?.messages?.bot || 0)}</span>
+                    <span className="text-blue-600">AI messages</span>
+                    <span className="font-semibold">{formatNumber(dashboardData?.messages?.ai ?? dashboardData?.messages?.bot ?? 0)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-600">Agent Messages</span>
-                    <span className="font-semibold">{formatNumber(dashboardData?.messages?.agent || 0)}</span>
+                    <span className="text-blue-600">Human team (humanAgentId)</span>
+                    <span className="font-semibold">{formatNumber(dashboardData?.messages?.humanAgent ?? dashboardData?.messages?.agent ?? 0)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-600">Visitor Messages</span>
+                    <span className="text-blue-600">Visitor messages</span>
                     <span className="font-semibold">{formatNumber(dashboardData?.messages?.visitor || 0)}</span>
                   </div>
                 </div>
@@ -428,8 +451,8 @@ const SuperAdminDashboard = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
                     data={[
-                      { name: 'Bot', value: dashboardData?.messages?.bot || 0 },
-                      { name: 'Agent', value: dashboardData?.messages?.agent || 0 },
+                      { name: 'AI', value: dashboardData?.messages?.ai ?? dashboardData?.messages?.bot ?? 0 },
+                      { name: 'Human', value: dashboardData?.messages?.humanAgent ?? dashboardData?.messages?.agent ?? 0 },
                       { name: 'Visitor', value: dashboardData?.messages?.visitor || 0 }
                     ]}
                   >

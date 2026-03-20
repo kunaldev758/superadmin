@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ArrowLeft, 
-  User, 
   UserCog, 
   MessageSquare, 
   Database, 
@@ -11,7 +10,8 @@ import {
   HardDrive,
   BarChart3,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Bot
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const ClientDetailsView = ({ clientId, onBack }) => {
   const [clientData, setClientData] = useState(null);
-  const [agents, setAgents] = useState([]);
+  const [aiAgents, setAiAgents] = useState([]);
+  const [humanAgents, setHumanAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -43,7 +44,6 @@ const ClientDetailsView = ({ clientId, onBack }) => {
         const data = await response.json();
         const client = data.data.find(c => c._id === clientId);
         if (client) {
-          console.log(client,"this is Client Data")
           setClientData(client);
         } else {
           setError('Client not found');
@@ -58,13 +58,13 @@ const ClientDetailsView = ({ clientId, onBack }) => {
     }
   }, [clientId, apiUrl]);
 
-  const fetchAgents = useCallback(async () => {
+  const fetchClientAgents = useCallback(async () => {
     if (!clientId) return;
     
     try {
       setAgentsLoading(true);
       const token = localStorage.getItem('superAdminToken');
-      const response = await fetch(`${apiUrl}/agent/${clientId}`, {
+      const response = await fetch(`${apiUrl}/clients/${clientId}/agents`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -73,9 +73,10 @@ const ClientDetailsView = ({ clientId, onBack }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setAgents(data.data.agents || []);
+        setAiAgents(data.data?.aiAgents || []);
+        setHumanAgents(data.data?.humanAgents || []);
       } else {
-        console.error('Failed to fetch agents');
+        console.error('Failed to fetch client agents');
       }
     } catch (error) {
       console.error('Network error occurred:', error);
@@ -120,9 +121,9 @@ const ClientDetailsView = ({ clientId, onBack }) => {
 
   useEffect(() => {
     if (activeTab === 'agents' && clientId) {
-      fetchAgents();
+      fetchClientAgents();
     }
-  }, [activeTab, clientId, fetchAgents]);
+  }, [activeTab, clientId, fetchClientAgents]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -184,7 +185,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart3 },
-    { id: 'agents', name: 'Agents', icon: UserCog },
+    { id: 'agents', name: 'Team & chatbots', icon: UserCog },
   ];
 
   return (
@@ -233,17 +234,28 @@ const ClientDetailsView = ({ clientId, onBack }) => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Agents</CardTitle>
+              <CardTitle className="text-sm font-medium">AI chatbots</CardTitle>
+              <Bot className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{clientData?.usageDetails?.totalAiAgents ?? clientData?.usageDetails?.totalAgents ?? 0}</div>
+              <p className="text-xs text-muted-foreground">
+                of {clientData?.usageDetails?.maxAgents || 0} allowed (plan)
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Human agents</CardTitle>
               <UserCog className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{clientData?.usageDetails?.totalAgents || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                of {clientData?.usageDetails?.maxAgents || 0} allowed
-              </p>
+              <div className="text-2xl font-bold">{clientData?.usageDetails?.totalHumanAgents ?? 0}</div>
+              <p className="text-xs text-muted-foreground">Team members (HumanAgent)</p>
             </CardContent>
           </Card>
 
@@ -364,10 +376,14 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                         <span className="font-medium">{formatFileSize(clientData?.usageDetails?.maxStorage)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Agents:</span>
+                        <span className="text-muted-foreground">AI chatbots:</span>
                         <span className="font-medium">
-                          {clientData?.usageDetails?.totalAgents || 0} / {clientData?.usageDetails?.maxAgents || 0}
+                          {clientData?.usageDetails?.totalAiAgents ?? clientData?.usageDetails?.totalAgents ?? 0} / {clientData?.usageDetails?.maxAgents || 0}
                         </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Human agents:</span>
+                        <span className="font-medium">{clientData?.usageDetails?.totalHumanAgents ?? 0}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Conversations:</span>
@@ -423,75 +439,143 @@ const ClientDetailsView = ({ clientId, onBack }) => {
             )}
 
             {activeTab === 'agents' && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold">Agents ({agents.length})</h3>
+              <div className="space-y-10">
+                <div className="flex justify-between items-center">
                   {agentsLoading && (
-                    <div className="text-sm text-muted-foreground">Loading agents...</div>
+                    <div className="text-sm text-muted-foreground">Loading…</div>
                   )}
                 </div>
                 
                 {agentsLoading ? (
                   <div className="text-center py-8">
                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Loading agents...</p>
+                    <p className="text-muted-foreground">Loading team & chatbots…</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {agents.map((agent) => (
-                      <Card key={agent._id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center mb-3">
-                            <Avatar>
-                              <AvatarFallback className="bg-blue-100 text-blue-600">
-                                <UserCog className="w-5 h-5" />
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="ml-3">
-                              <h4 className="font-medium">{agent.name}</h4>
-                              <p className="text-sm text-muted-foreground">{agent.email}</p>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Status:</span>
-                              <Badge variant={getStatusBadgeVariant(agent.status)}>
-                                {agent.status}
-                              </Badge>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Active:</span>
-                              <span className={agent.isActive ? 'text-green-600' : 'text-muted-foreground'}>
-                                {agent.isActive ? 'Online' : 'Offline'}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Created:</span>
-                              <span className="text-muted-foreground">
-                                {formatDate(agent.createdAt)}
-                              </span>
-                            </div>
-                            {agent.lastActive && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Last Active:</span>
-                                <span className="text-muted-foreground">
-                                  {formatDate(agent.lastActive)}
-                                </span>
+                  <>
+                    <section>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <UserCog className="w-5 h-5" />
+                        Human agents ({humanAgents.length})
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {humanAgents.map((ha) => (
+                          <Card key={ha._id}>
+                            <CardContent className="p-4">
+                              <div className="flex items-center mb-3">
+                                <Avatar>
+                                  <AvatarFallback className="bg-teal-100 text-teal-700">
+                                    {(ha.name || '?').charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="ml-3 min-w-0">
+                                  <h4 className="font-medium truncate">{ha.name}</h4>
+                                  <p className="text-sm text-muted-foreground truncate">{ha.email}</p>
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-                
-                {!agentsLoading && agents.length === 0 && (
-                  <div className="text-center py-8">
-                    <UserCog className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h3 className="mt-2 text-sm font-medium">No agents found</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">This client hasn't added any agents yet.</p>
-                  </div>
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">humanAgentId</span>
+                                  <span className="font-mono text-xs truncate max-w-[140px]" title={ha._id}>{ha._id}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Status</span>
+                                  <Badge variant={getStatusBadgeVariant(ha.status)}>{ha.status}</Badge>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Online</span>
+                                  <span className={ha.isActive ? 'text-green-600' : 'text-muted-foreground'}>
+                                    {ha.isActive ? 'Yes' : 'No'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Assigned AI chatbots</span>
+                                  <span>{Array.isArray(ha.assignedAgents) ? ha.assignedAgents.length : 0}</span>
+                                </div>
+                                {Array.isArray(ha.assignedAgents) && ha.assignedAgents.length > 0 && (
+                                  <ul className="text-xs text-muted-foreground border-t pt-2 mt-2 space-y-1">
+                                    {ha.assignedAgents.map((a) => (
+                                      <li key={a._id} className="truncate">
+                                        {a.agentName || a.website_name || a._id}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                                <div className="flex justify-between text-muted-foreground">
+                                  <span>Created</span>
+                                  <span>{formatDate(ha.createdAt)}</span>
+                                </div>
+                                {ha.lastActive && (
+                                  <div className="flex justify-between text-muted-foreground">
+                                    <span>Last active</span>
+                                    <span>{formatDate(ha.lastActive)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                      {!agentsLoading && humanAgents.length === 0 && (
+                        <p className="text-sm text-muted-foreground py-4">No human agents for this account.</p>
+                      )}
+                    </section>
+
+                    <section>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Bot className="w-5 h-5" />
+                        AI chatbots ({aiAgents.length})
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {aiAgents.map((bot) => (
+                          <Card key={bot._id}>
+                            <CardContent className="p-4">
+                              <div className="flex items-center mb-3">
+                                <Avatar>
+                                  <AvatarFallback className="bg-blue-100 text-blue-600">
+                                    <Bot className="w-5 h-5" />
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="ml-3 min-w-0">
+                                  <h4 className="font-medium truncate">{bot.agentName || 'Unnamed bot'}</h4>
+                                  <p className="text-sm text-muted-foreground truncate">{bot.website_name || '—'}</p>
+                                </div>
+                              </div>
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Agent (AI) id</span>
+                                  <span className="font-mono text-xs truncate max-w-[140px]" title={bot._id}>{bot._id}</span>
+                                </div>
+                                {bot.email ? (
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Contact email</span>
+                                    <span className="truncate max-w-[180px]">{bot.email}</span>
+                                  </div>
+                                ) : null}
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Active</span>
+                                  <span className={bot.isActive ? 'text-green-600' : 'text-muted-foreground'}>
+                                    {bot.isActive ? 'Yes' : 'No'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Live human support</span>
+                                  <span>{bot.liveAgentSupport ? 'On' : 'Off'}</span>
+                                </div>
+                                <div className="flex justify-between text-muted-foreground">
+                                  <span>Created</span>
+                                  <span>{formatDate(bot.createdAt)}</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                      {!agentsLoading && aiAgents.length === 0 && (
+                        <p className="text-sm text-muted-foreground py-4">No AI chatbots for this account.</p>
+                      )}
+                    </section>
+                  </>
                 )}
               </div>
             )}
