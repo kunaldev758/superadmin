@@ -24,6 +24,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
+// GPT-4.1 Standard API — $2/1M input, $8/1M output (platform.openai.com/docs/pricing).
+// Usage is stored as a single total; approximate cost with a typical chat input/output split.
+const GPT_41_INPUT_USD_PER_M = 2;
+const GPT_41_OUTPUT_USD_PER_M = 8;
+const GPT_41_EST_INPUT_SHARE = 0.7;
+
+const estimateGpt41CostUsd = (totalTokens) => {
+  const n = Number(totalTokens);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  const inputTokens = n * GPT_41_EST_INPUT_SHARE;
+  const outputTokens = n * (1 - GPT_41_EST_INPUT_SHARE);
+  return (
+    (inputTokens * GPT_41_INPUT_USD_PER_M + outputTokens * GPT_41_OUTPUT_USD_PER_M) /
+    1_000_000
+  );
+};
+
 const SuperAdminDashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -247,14 +264,16 @@ const SuperAdminDashboard = () => {
               </div>
               <Separator />
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Total Cost</span>
-                <span className="font-semibold text-blue-600">{formatCurrency(dashboardData?.openAIUsage?.totalCost || 0)}</span>
+                <span className="text-muted-foreground">Estimated cost </span>
+                <span className="font-semibold text-blue-600">
+                  {formatCurrency(estimateGpt41CostUsd(dashboardData?.openAIUsage?.totalTokens))}
+                </span>
               </div>
-              <Separator />
+              {/* <Separator />
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Total Requests</span>
                 <span className="font-semibold text-blue-600">{formatCurrency(dashboardData?.openAIUsage?.totalRequests || 0)}</span>
-              </div>
+              </div> */}
             </CardContent>
           </Card>
 

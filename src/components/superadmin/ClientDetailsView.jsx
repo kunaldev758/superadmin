@@ -11,7 +11,9 @@ import {
   BarChart3,
   Trash2,
   AlertTriangle,
-  Bot
+  Bot,
+  Settings2,
+  CheckCircle2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +29,16 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [customLimitsLoading, setCustomLimitsLoading] = useState(false);
+  const [customLimitsSuccess, setCustomLimitsSuccess] = useState('');
+  const [customLimitsError, setCustomLimitsError] = useState('');
+  const [customLimitsForm, setCustomLimitsForm] = useState({
+    isCustomLimits: false,
+    maxQueries: '',
+    maxHumanAgents: '',
+    maxAgents: '',
+    maxStorage: '',
+  });
   const apiUrl = import.meta.env.VITE_API_URL;
 
   const fetchClientDetails = useCallback(async () => {
@@ -113,11 +125,58 @@ const ClientDetailsView = ({ clientId, onBack }) => {
     }
   };
 
+  const saveCustomLimits = async () => {
+    setCustomLimitsSuccess('');
+    setCustomLimitsError('');
+    try {
+      setCustomLimitsLoading(true);
+      const token = localStorage.getItem('superAdminToken');
+      const payload = {
+        isCustomLimits: customLimitsForm.isCustomLimits,
+        maxQueries: customLimitsForm.maxQueries !== '' ? Number(customLimitsForm.maxQueries) : null,
+        maxHumanAgents: customLimitsForm.maxHumanAgents !== '' ? Number(customLimitsForm.maxHumanAgents) : null,
+        maxAgents: customLimitsForm.maxAgents !== '' ? Number(customLimitsForm.maxAgents) : null,
+        maxStorage: customLimitsForm.maxStorage !== '' ? Number(customLimitsForm.maxStorage) : null,
+      };
+      const response = await fetch(`${apiUrl}/clients/${clientId}/custom-limits`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setCustomLimitsSuccess(data.message || 'Custom limits saved successfully');
+        fetchClientDetails();
+      } else {
+        setCustomLimitsError(data.message || 'Failed to save custom limits');
+      }
+    } catch {
+      setCustomLimitsError('Network error occurred');
+    } finally {
+      setCustomLimitsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (clientId) {
       fetchClientDetails();
     }
   }, [clientId, fetchClientDetails]);
+
+  useEffect(() => {
+    if (clientData?.customLimits) {
+      setCustomLimitsForm({
+        isCustomLimits: clientData.customLimits.isCustomLimits || false,
+        maxQueries: clientData.customLimits.maxQueries ?? '',
+        maxHumanAgents: clientData.customLimits.maxHumanAgents ?? '',
+        maxAgents: clientData.customLimits.maxAgents ?? '',
+        maxStorage: clientData.customLimits.maxStorage ?? '',
+      });
+    }
+  }, [clientData]);
 
   useEffect(() => {
     if (activeTab === 'agents' && clientId) {
@@ -186,6 +245,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart3 },
     { id: 'agents', name: 'Team & chatbots', icon: UserCog },
+    { id: 'custom-limits', name: 'Custom Limits', icon: Settings2 },
   ];
 
   return (
@@ -412,7 +472,8 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                 {/* Upgrade Status */}
                 {(clientData?.upgradePlanStatus?.storageLimitExceeded || 
                   clientData?.upgradePlanStatus?.agentLimitExceeded || 
-                  clientData?.upgradePlanStatus?.chatLimitExceeded) && (
+                  clientData?.upgradePlanStatus?.chatLimitExceeded ||
+                  clientData?.upgradePlanStatus?.humanAgentLimitExceeded) && (
                   <Card className="border-orange-200 bg-orange-50">
                     <CardHeader>
                       <CardTitle className="flex items-center text-orange-800">
@@ -431,10 +492,96 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                         {clientData?.upgradePlanStatus?.chatLimitExceeded && (
                           <div className="text-sm text-orange-700">⚠️ Chat limit exceeded</div>
                         )}
+                        {clientData?.upgradePlanStatus?.humanAgentLimitExceeded && (
+                          <div className="text-sm text-orange-700">⚠️ Human agent limit exceeded</div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
                 )}
+              </div>
+            )}
+
+            {activeTab === 'custom-limits' && (
+              <div className="space-y-6 max-w-xl">
+                <p className="text-sm text-muted-foreground">
+                  Enable custom limits to override this client&apos;s plan limits. Leave a field blank to
+                  inherit the plan default for that dimension.
+                </p>
+
+                {/* Enable toggle */}
+                <div className="flex items-center gap-3">
+                  <input
+                    id="isCustomLimits"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300"
+                    checked={customLimitsForm.isCustomLimits}
+                    onChange={(e) =>
+                      setCustomLimitsForm((f) => ({ ...f, isCustomLimits: e.target.checked }))
+                    }
+                  />
+                  <label htmlFor="isCustomLimits" className="text-sm font-medium select-none">
+                    Enable custom limits for this client
+                  </label>
+                  {clientData?.usageDetails?.isCustomLimits && (
+                    <Badge variant="default" className="ml-2 bg-amber-500 text-white">Active</Badge>
+                  )}
+                </div>
+
+                {/* Limit fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { key: 'maxQueries', label: 'Max Conversations / month', placeholder: 'e.g. 5000' },
+                    { key: 'maxAgents', label: 'Max AI Chatbots', placeholder: 'e.g. 10' },
+                    { key: 'maxHumanAgents', label: 'Max Human Agents', placeholder: 'e.g. 5' },
+                    { key: 'maxStorage', label: 'Max Storage (bytes)', placeholder: 'e.g. 104857600' },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} className="space-y-1">
+                      <label className="text-sm font-medium text-muted-foreground">{label}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder={placeholder}
+                        disabled={!customLimitsForm.isCustomLimits}
+                        value={customLimitsForm[key]}
+                        onChange={(e) =>
+                          setCustomLimitsForm((f) => ({ ...f, [key]: e.target.value }))
+                        }
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Current plan limits for reference */}
+                {clientData && (
+                  <div className="rounded-md border p-4 bg-muted/40 text-xs space-y-1">
+                    <p className="font-semibold text-sm mb-2">Current plan limits (for reference)</p>
+                    <div className="flex justify-between"><span>Plan:</span><span className="font-medium">{clientData.plan || 'free'}</span></div>
+                    <div className="flex justify-between"><span>Max AI chatbots:</span><span>{clientData.usageDetails?.maxAgents ?? '—'}</span></div>
+                    <div className="flex justify-between"><span>Max conversations:</span><span>{clientData.usageDetails?.maxQueries ?? '—'}</span></div>
+                    <div className="flex justify-between"><span>Max storage:</span><span>{formatFileSize(clientData.usageDetails?.maxStorage)}</span></div>
+                    <div className="flex justify-between"><span>Max human agents:</span><span>{clientData.usageDetails?.maxHumanAgents ?? '—'}</span></div>
+                  </div>
+                )}
+
+                {/* Feedback */}
+                {customLimitsSuccess && (
+                  <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    {customLimitsSuccess}
+                  </div>
+                )}
+                {customLimitsError && (
+                  <div className="flex items-center gap-2 text-sm text-destructive bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                    <XCircle className="w-4 h-4" />
+                    {customLimitsError}
+                  </div>
+                )}
+
+                <Button onClick={saveCustomLimits} disabled={customLimitsLoading}>
+                  {customLimitsLoading ? 'Saving…' : 'Save custom limits'}
+                </Button>
               </div>
             )}
 
