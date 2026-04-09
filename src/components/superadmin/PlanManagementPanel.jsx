@@ -19,6 +19,349 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 
+const getDefaultPlanFormData = () => ({
+  name: '',
+  displayName: '',
+  description: '',
+  pricing: {
+    monthly: 0,
+    yearly: 0,
+    currency: 'USD'
+  },
+  limits: {
+    maxQueries: 100,
+    maxStorage: 10485760,
+    maxAgentsPerAccount: 1,
+    maxHumanAgentsPerAccount: 1
+  },
+  metadata: {
+    trial: {
+      enabled: false,
+      days: 0
+    },
+    color: '#6B7280',
+    icon: 'default-plan',
+    popular: false
+  },
+  status: 'active'
+});
+
+const buildFormDataFromPlan = (plan) => {
+  const base = getDefaultPlanFormData();
+  if (!plan) return base;
+  return {
+    ...base,
+    ...plan,
+    pricing: { ...base.pricing, ...(plan.pricing || {}) },
+    limits: { ...base.limits, ...(plan.limits || {}) },
+    metadata: {
+      ...base.metadata,
+      ...(plan.metadata || {}),
+      trial: { ...base.metadata.trial, ...(plan.metadata?.trial || {}) }
+    }
+  };
+};
+
+function PlanFormModal({ show, onClose, onSubmit, plan = null, title }) {
+  const [formData, setFormData] = useState(() => getDefaultPlanFormData());
+
+  useEffect(() => {
+    if (!show) return;
+    setFormData(buildFormDataFromPlan(plan));
+  }, [show, plan?._id]);
+
+  const coerceNum = (v, fallback = 0) => {
+    if (v === '' || v === null || v === undefined) return fallback;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+  const handleSubmit = () => {
+    const fd = formData;
+    onSubmit({
+      ...fd,
+      pricing: {
+        ...fd.pricing,
+        monthly: coerceNum(fd.pricing?.monthly, 0),
+        yearly: coerceNum(fd.pricing?.yearly, 0)
+      },
+      limits: {
+        ...fd.limits,
+        maxQueries: coerceNum(fd.limits?.maxQueries, 0),
+        maxStorage: coerceNum(fd.limits?.maxStorage, 0),
+        maxAgentsPerAccount: coerceNum(fd.limits?.maxAgentsPerAccount, 1),
+        maxHumanAgentsPerAccount: coerceNum(fd.limits?.maxHumanAgentsPerAccount, 1)
+      },
+      metadata: {
+        ...fd.metadata,
+        trial: {
+          ...fd.metadata?.trial,
+          days: coerceNum(fd.metadata?.trial?.days, 0)
+        }
+      }
+    });
+  };
+
+  const parseIntInput = (raw) => {
+    if (raw === '') return '';
+    const n = parseInt(raw, 10);
+    return Number.isNaN(n) ? '' : n;
+  };
+
+  const parseFloatInput = (raw) => {
+    if (raw === '') return '';
+    const n = parseFloat(raw);
+    return Number.isNaN(n) ? '' : n;
+  };
+
+  const numberFieldValue = (v) =>
+    v === '' || v === undefined || v === null ? '' : v;
+
+  const updateFormData = (path, value) => {
+    const keys = path.split('.');
+    setFormData((prev) => {
+      const newData = { ...prev };
+      let current = newData;
+      for (let i = 0; i < keys.length - 1; i++) {
+        const k = keys[i];
+        current[k] = { ...(current[k] || {}) };
+        current = current[k];
+      }
+      current[keys[keys.length - 1]] = value;
+      return newData;
+    });
+  };
+
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          {/* Basic Info */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Plan Name</label>
+                <input
+                  type="text"
+                  value={formData.name ?? ''}
+                  onChange={(e) => updateFormData('name', e.target.value)}
+                  disabled={!!plan}
+                  title={plan ? 'Internal id — set at creation only' : undefined}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600 disabled:cursor-not-allowed"
+                  placeholder="e.g., basic, pro, enterprise"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+                <input
+                  type="text"
+                  value={formData.displayName ?? ''}
+                  onChange={(e) => updateFormData('displayName', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Basic Plan"
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={formData.description ?? ''}
+                onChange={(e) => updateFormData('description', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="3"
+                placeholder="Plan description"
+              />
+            </div>
+          </div>
+
+          {/* Pricing */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Pricing</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Price</label>
+                <input
+                  type="number"
+                  value={numberFieldValue(formData.pricing?.monthly)}
+                  onChange={(e) => updateFormData('pricing.monthly', parseFloatInput(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Yearly Price</label>
+                <input
+                  type="number"
+                  value={numberFieldValue(formData.pricing?.yearly)}
+                  onChange={(e) => updateFormData('pricing.yearly', parseFloatInput(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                <select
+                  value={formData.pricing?.currency || 'USD'}
+                  onChange={(e) => updateFormData('pricing.currency', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Limits */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Limits</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Queries</label>
+                <input
+                  type="number"
+                  value={numberFieldValue(formData.limits?.maxQueries)}
+                  onChange={(e) => updateFormData('limits.maxQueries', parseIntInput(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Storage (bytes)</label>
+                <input
+                  type="number"
+                  value={numberFieldValue(formData.limits?.maxStorage)}
+                  onChange={(e) => updateFormData('limits.maxStorage', parseIntInput(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                <input
+                  type="number"
+                  value={numberFieldValue(formData.limits?.maxAgentsPerAccount)}
+                  onChange={(e) => updateFormData('limits.maxAgentsPerAccount', parseIntInput(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Human Agents per Account</label>
+                <input
+                  type="number"
+                  value={numberFieldValue(formData.limits?.maxHumanAgentsPerAccount)}
+                  onChange={(e) => updateFormData('limits.maxHumanAgentsPerAccount', parseIntInput(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="1"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Metadata */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Metadata & Settings</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Plan Color</label>
+                <input
+                  type="color"
+                  value={formData.metadata?.color || '#6B7280'}
+                  onChange={(e) => updateFormData('metadata.color', e.target.value)}
+                  className="w-full h-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => updateFormData('status', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.metadata?.popular || false}
+                    onChange={(e) => updateFormData('metadata.popular', e.target.checked)}
+                    className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Mark as Popular</span>
+                </label>
+              </div>
+              <div>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.metadata?.trial?.enabled || false}
+                    onChange={(e) => updateFormData('metadata.trial.enabled', e.target.checked)}
+                    className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Enable Trial</span>
+                </label>
+              </div>
+            </div>
+
+            {formData.metadata?.trial?.enabled && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Trial Days</label>
+                <input
+                  type="number"
+                  value={numberFieldValue(formData.metadata?.trial?.days)}
+                  onChange={(e) => updateFormData('metadata.trial.days', parseIntInput(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="1"
+                  max="365"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              {plan ? 'Update Plan' : 'Create Plan'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const PlanManagementPanel = () => {
   const [plans, setPlans] = useState([]);
   const [stats, setStats] = useState(null);
@@ -389,285 +732,6 @@ const PlanManagementPanel = () => {
             {plan.isDefault ? 'Default Plan' : 'Set as Default'}
           </button>
           <span className="text-xs text-gray-500">Order: {plan.order}</span>
-        </div>
-      </div>
-    );
-  };
-
-  const PlanFormModal = ({ show, onClose, onSubmit, plan = null, title }) => {
-    const [formData, setFormData] = useState({
-      name: '',
-      displayName: '',
-      description: '',
-      pricing: {
-        monthly: 0,
-        yearly: 0,
-        currency: 'USD'
-      },
-      limits: {
-        // maxDataSize: 1024000,
-        // maxPages: 50,
-        maxQueries: 100,
-        maxStorage: 10485760,
-        maxAgentsPerAccount:1
-      },
-      // features: {
-      //   batchSize: 5,
-      //   concurrency: 2,
-      //   apiAccess: false,
-      //   prioritySupport: false,
-      //   customIntegrations: false,
-      //   whiteLabel: false,
-      //   analytics: false
-      // },
-      // restrictions: {
-      //   maxUsersPerAccount: 1,
-      //   maxCollections: 1,
-      //   rateLimitPerMinute: 10
-      // },
-      metadata: {
-        trial: {
-          enabled: false,
-          days: 0
-        },
-        color: '#6B7280',
-        icon: 'default-plan',
-        popular: false
-      },
-      status: 'active',
-      ...plan
-    });
-
-    const handleSubmit = () => {
-      onSubmit(formData);
-    };
-
-    const updateFormData = (path, value) => {
-      const keys = path.split('.');
-      const newData = { ...formData };
-      let current = newData;
-      
-      for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) current[keys[i]] = {};
-        current = current[keys[i]];
-      }
-      
-      current[keys[keys.length - 1]] = value;
-      setFormData(newData);
-    };
-
-    if (!show) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {/* Basic Info */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Plan Name</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => updateFormData('name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., basic, pro, enterprise"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
-                  <input
-                    type="text"
-                    value={formData.displayName}
-                    onChange={(e) => updateFormData('displayName', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Basic Plan"
-                  />
-                </div>
-              </div>
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => updateFormData('description', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows="3"
-                  placeholder="Plan description"
-                />
-              </div>
-            </div>
-
-            {/* Pricing */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Pricing</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Price</label>
-                  <input
-                    type="number"
-                    value={formData.pricing?.monthly || 0}
-                    onChange={(e) => updateFormData('pricing.monthly', parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Yearly Price</label>
-                  <input
-                    type="number"
-                    value={formData.pricing?.yearly || 0}
-                    onChange={(e) => updateFormData('pricing.yearly', parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                  <select
-                    value={formData.pricing?.currency || 'USD'}
-                    onChange={(e) => updateFormData('pricing.currency', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Limits */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Limits</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Queries</label>
-                  <input
-                    type="number"
-                    value={formData.limits?.maxQueries || 0}
-                    onChange={(e) => updateFormData('limits.maxQueries', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Storage (bytes)</label>
-                  <input
-                    type="number"
-                    value={formData.limits?.maxStorage || 0}
-                    onChange={(e) => updateFormData('limits.maxStorage', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Agents per Account</label>
-                  <input
-                    type="number"
-                    value={formData.limits?.maxAgentsPerAccount || 0}
-                    onChange={(e) => updateFormData('limits.maxUsersPerAccount', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="1"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Metadata */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Metadata & Settings</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Plan Color</label>
-                  <input
-                    type="color"
-                    value={formData.metadata?.color || '#6B7280'}
-                    onChange={(e) => updateFormData('metadata.color', e.target.value)}
-                    className="w-full h-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => updateFormData('status', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.metadata?.popular || false}
-                      onChange={(e) => updateFormData('metadata.popular', e.target.checked)}
-                      className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">Mark as Popular</span>
-                  </label>
-                </div>
-                <div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.metadata?.trial?.enabled || false}
-                      onChange={(e) => updateFormData('metadata.trial.enabled', e.target.checked)}
-                      className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">Enable Trial</span>
-                  </label>
-                </div>
-              </div>
-              
-              {formData.metadata?.trial?.enabled && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Trial Days</label>
-                  <input
-                    type="number"
-                    value={formData.metadata?.trial?.days || 0}
-                    onChange={(e) => updateFormData('metadata.trial.days', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="1"
-                    max="365"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                type="button"
-                onClick={handleSubmit}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                {plan ? 'Update Plan' : 'Create Plan'}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     );
