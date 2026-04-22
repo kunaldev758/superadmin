@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { 
   Users, 
   Eye, 
@@ -19,22 +19,46 @@ const ClientListView = ({ onViewDetails }) => {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortOrder, setSortOrder] = useState('desc');
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    totalCount: 0,
+    totalPages: 0,
+  });
+  const lastDebouncedSearchRef = useRef(searchTerm);
 
   const apiUrl = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    const t = setTimeout(() => {
+      if (lastDebouncedSearchRef.current !== searchTerm) {
+        setCurrentPage(1);
+      }
+      lastDebouncedSearchRef.current = searchTerm;
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('superAdminToken');
-      const response = await fetch(`${apiUrl}/clients`, {
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(itemsPerPage),
+        sortBy,
+        sortOrder,
+      });
+      if (debouncedSearch.trim()) {
+        params.set('search', debouncedSearch.trim());
+      }
+      const response = await fetch(`${apiUrl}/clients?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -43,7 +67,10 @@ const ClientListView = ({ onViewDetails }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setClients(data.data);
+        setClients(data.data || []);
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
       } else {
         console.error('Failed to fetch clients');
       }
@@ -52,7 +79,11 @@ const ClientListView = ({ onViewDetails }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiUrl, currentPage, itemsPerPage, sortBy, sortOrder, debouncedSearch]);
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -70,56 +101,9 @@ const ClientListView = ({ onViewDetails }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const filteredClients = clients.filter(client =>
-    client.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.userId?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.plan?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const sortedClients = [...filteredClients].sort((a, b) => {
-    let aValue, bValue;
-    
-    switch (sortBy) {
-      case 'email':
-        aValue = a.userId?.email || '';
-        bValue = b.userId?.email || '';
-        break;
-      case 'plan':
-        aValue = a.plan || '';
-        bValue = b.plan || '';
-        break;
-      case 'agents':
-        aValue = (a.usageDetails?.totalAiAgents ?? a.usageDetails?.totalAgents) || 0;
-        bValue = (b.usageDetails?.totalAiAgents ?? b.usageDetails?.totalAgents) || 0;
-        break;
-      case 'conversations':
-        aValue = a.usageDetails?.totalConversations || 0;
-        bValue = b.usageDetails?.totalConversations || 0;
-        break;
-      case 'contentSize':
-        aValue = a.currentDataSize || 0;
-        bValue = b.currentDataSize || 0;
-        break;
-      case 'totalAmountPaid':
-        aValue = a.totalAmountPaid || 0;
-        bValue = b.totalAmountPaid || 0;
-        break;
-      default:
-        aValue = new Date(a.createdAt);
-        bValue = new Date(b.createdAt);
-    }
-
-    if (sortOrder === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
-  });
-
-  // Pagination logic
-  const totalPages = Math.ceil(sortedClients.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedClients = sortedClients.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = pagination.totalPages;
+  const totalCount = pagination.totalCount;
+  const startIndex = totalCount === 0 ? 0 : (pagination.page - 1) * pagination.limit;
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -128,6 +112,7 @@ const ClientListView = ({ onViewDetails }) => {
       setSortBy(field);
       setSortOrder('desc');
     }
+    setCurrentPage(1);
   };
 
   const getPlanBadgeVariant = (plan) => {
@@ -299,7 +284,7 @@ const ClientListView = ({ onViewDetails }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedClients.map((client, index) => (
+                  {clients.map((client, index) => (
                     <tr 
                       key={client._id} 
                       className={`hover:bg-blue-50 transition-colors ${
@@ -381,7 +366,7 @@ const ClientListView = ({ onViewDetails }) => {
               </table>
             </div>
             
-            {paginatedClients.length === 0 && (
+            {clients.length === 0 && (
               <div className="text-center py-12">
                 <Users className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-sm font-medium">No clients found</h3>
@@ -392,10 +377,10 @@ const ClientListView = ({ onViewDetails }) => {
             )}
 
             {/* Pagination */}
-            {sortedClients.length > 0 && (
+            {totalCount > 0 && (
               <div className="flex items-center justify-between px-2 py-4 bg-gray-50 rounded-b-lg mt-4">
                 <div className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedClients.length)} of {sortedClients.length} results
+                  Showing {startIndex + 1} to {startIndex + clients.length} of {totalCount} results
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button
@@ -434,7 +419,7 @@ const ClientListView = ({ onViewDetails }) => {
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
+                    disabled={currentPage >= totalPages || totalPages === 0}
                   >
                     Next
                   </Button>

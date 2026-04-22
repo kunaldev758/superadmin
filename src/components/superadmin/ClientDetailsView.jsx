@@ -12,13 +12,18 @@ import {
   Trash2,
   AlertTriangle,
   Bot,
-  Settings2,
-  CheckCircle2
+  CheckCircle2,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
+/** Plan limits and custom limits maxStorage are stored in bytes; the form uses MB like PlanManagementPanel. */
+const BYTES_PER_MB = 1024 * 1024;
 
 const ClientDetailsView = ({ clientId, onBack }) => {
   const [clientData, setClientData] = useState(null);
@@ -32,20 +37,23 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   const [customLimitsLoading, setCustomLimitsLoading] = useState(false);
   const [customLimitsSuccess, setCustomLimitsSuccess] = useState('');
   const [customLimitsError, setCustomLimitsError] = useState('');
+  /** Mirrors saved per-client limits from the API; used to merge when saving one field from Overview. */
   const [customLimitsForm, setCustomLimitsForm] = useState({
-    isCustomLimits: false,
     maxQueries: '',
     maxHumanAgents: '',
     maxAgents: '',
     maxStorage: '',
   });
+  /** Quick-edit limits from Overview Usage Details (PUT /clients/:id/custom-limits). */
+  const [usageEditing, setUsageEditing] = useState(null);
+  const [usageEditDraft, setUsageEditDraft] = useState('');
   const apiUrl = import.meta.env.VITE_API_URL;
 
   const fetchClientDetails = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('superAdminToken');
-      const response = await fetch(`${apiUrl}/clients`, {
+      const response = await fetch(`${apiUrl}/clients/${clientId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -54,9 +62,8 @@ const ClientDetailsView = ({ clientId, onBack }) => {
 
       if (response.ok) {
         const data = await response.json();
-        const client = data.data.find(c => c._id === clientId);
-        if (client) {
-          setClientData(client);
+        if (data.data) {
+          setClientData(data.data);
         } else {
           setError('Client not found');
         }
@@ -125,19 +132,12 @@ const ClientDetailsView = ({ clientId, onBack }) => {
     }
   };
 
-  const saveCustomLimits = async () => {
+  const putCustomLimits = async (payload) => {
     setCustomLimitsSuccess('');
     setCustomLimitsError('');
     try {
       setCustomLimitsLoading(true);
       const token = localStorage.getItem('superAdminToken');
-      const payload = {
-        isCustomLimits: customLimitsForm.isCustomLimits,
-        maxQueries: customLimitsForm.maxQueries !== '' ? Number(customLimitsForm.maxQueries) : null,
-        maxHumanAgents: customLimitsForm.maxHumanAgents !== '' ? Number(customLimitsForm.maxHumanAgents) : null,
-        maxAgents: customLimitsForm.maxAgents !== '' ? Number(customLimitsForm.maxAgents) : null,
-        maxStorage: customLimitsForm.maxStorage !== '' ? Number(customLimitsForm.maxStorage) : null,
-      };
       const response = await fetch(`${apiUrl}/clients/${clientId}/custom-limits`, {
         method: 'PUT',
         headers: {
@@ -146,18 +146,102 @@ const ClientDetailsView = ({ clientId, onBack }) => {
         },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (response.ok) {
-        setCustomLimitsSuccess(data.message || 'Custom limits saved successfully');
+        setCustomLimitsSuccess(data.message || 'Limits saved successfully');
         fetchClientDetails();
       } else {
-        setCustomLimitsError(data.message || 'Failed to save custom limits');
+        setCustomLimitsError(data.message || 'Failed to save limits');
       }
     } catch {
       setCustomLimitsError('Network error occurred');
     } finally {
       setCustomLimitsLoading(false);
     }
+  };
+
+  /** Saves overrides for this client; backend stores on client.customLimits (PlanService applies when isCustomLimits is true). */
+  const saveUsageQuickEdit = async (partialForm) => {
+    const merged = { ...customLimitsForm, ...partialForm };
+    const ud = clientData?.usageDetails;
+    const pickNum = (formVal, fallback) => {
+      if (formVal !== '' && formVal != null && formVal !== undefined) {
+        const num = Number(formVal);
+        return Number.isFinite(num) ? num : null;
+      }
+      if (fallback != null && fallback !== '') return Number(fallback);
+      return null;
+    };
+    const payload = {
+      isCustomLimits: true,
+      maxQueries: pickNum(merged.maxQueries, ud?.maxQueries),
+      maxHumanAgents: pickNum(merged.maxHumanAgents, ud?.maxHumanAgents),
+      maxAgents: pickNum(merged.maxAgents, ud?.maxAgents),
+      maxStorage:
+        merged.maxStorage !== '' && merged.maxStorage != null
+          ? Math.round(Number(merged.maxStorage) * BYTES_PER_MB)
+          : ud?.maxStorage != null
+            ? Number(ud.maxStorage)
+            : null,
+    };
+    await putCustomLimits(payload);
+  };
+
+  const usageEditFormKey = {
+    maxStorage: 'maxStorage',
+    maxAgents: 'maxAgents',
+    maxHumanAgents: 'maxHumanAgents',
+    maxQueries: 'maxQueries',
+  };
+
+  const startUsageEdit = (key) => {
+    setCustomLimitsSuccess('');
+    setCustomLimitsError('');
+    const ud = clientData?.usageDetails;
+    const f = customLimitsForm;
+    if (key === 'maxStorage') {
+      if (f.maxStorage !== '' && f.maxStorage != null) {
+        setUsageEditDraft(String(f.maxStorage));
+      } else if (ud?.maxStorage != null) {
+        setUsageEditDraft(String(Number(ud.maxStorage) / BYTES_PER_MB));
+      } else {
+        setUsageEditDraft('');
+      }
+    } else {
+      const fk = usageEditFormKey[key];
+      if (f[fk] !== '' && f[fk] != null) {
+        setUsageEditDraft(String(f[fk]));
+      } else if (ud?.[fk] != null) {
+        setUsageEditDraft(String(ud[fk]));
+      } else {
+        setUsageEditDraft('');
+      }
+    }
+    setUsageEditing(key);
+  };
+
+  const cancelUsageEdit = () => {
+    setUsageEditing(null);
+    setUsageEditDraft('');
+  };
+
+  const commitUsageEdit = async () => {
+    if (!usageEditing) return;
+    const raw = usageEditDraft.trim();
+    if (raw === '') {
+      setCustomLimitsError('Enter a limit value.');
+      return;
+    }
+    const num = Number(raw);
+    if (!Number.isFinite(num) || num < 0) {
+      setCustomLimitsError('Enter a valid non-negative number.');
+      return;
+    }
+    const fk = usageEditFormKey[usageEditing];
+    const partial = { [fk]: raw };
+    await saveUsageQuickEdit(partial);
+    setUsageEditing(null);
+    setUsageEditDraft('');
   };
 
   useEffect(() => {
@@ -167,13 +251,25 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   }, [clientId, fetchClientDetails]);
 
   useEffect(() => {
-    if (clientData?.customLimits) {
+    if (!clientData) return;
+    if (clientData.customLimits) {
+      const rawStorage = clientData.customLimits.maxStorage;
+      const maxStorageMb =
+        rawStorage != null && rawStorage !== ''
+          ? Number(rawStorage) / BYTES_PER_MB
+          : '';
       setCustomLimitsForm({
-        isCustomLimits: clientData.customLimits.isCustomLimits || false,
         maxQueries: clientData.customLimits.maxQueries ?? '',
         maxHumanAgents: clientData.customLimits.maxHumanAgents ?? '',
         maxAgents: clientData.customLimits.maxAgents ?? '',
-        maxStorage: clientData.customLimits.maxStorage ?? '',
+        maxStorage: maxStorageMb,
+      });
+    } else {
+      setCustomLimitsForm({
+        maxQueries: '',
+        maxHumanAgents: '',
+        maxAgents: '',
+        maxStorage: '',
       });
     }
   }, [clientData]);
@@ -183,6 +279,11 @@ const ClientDetailsView = ({ clientId, onBack }) => {
       fetchClientAgents();
     }
   }, [activeTab, clientId, fetchClientAgents]);
+
+  useEffect(() => {
+    setUsageEditing(null);
+    setUsageEditDraft('');
+  }, [activeTab]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -202,6 +303,25 @@ const ClientDetailsView = ({ clientId, onBack }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+   const getPagesAddedFailedDisplay = (raw) => {
+    if (raw == null) return { success: 0, failed: 0, usesDerived: false };
+    if (typeof raw === 'number') {
+      return { success: raw, failed: 0, usesDerived: false };
+    }
+    const success = Number(raw.success) || 0;
+    const reportedFailed = Number(raw.failed) || 0;
+    const total =
+      raw.total != null && raw.total !== '' ? Number(raw.total) : null;
+    if (total != null && total > 0) {
+      return {
+        success,
+        failed: Math.max(0, total - success),
+        usesDerived: true,
+      };
+    }
+    return { success, failed: reportedFailed, usesDerived: false };
+  };
+  
   const getStatusBadgeVariant = (status) => {
     switch (status?.toLowerCase()) {
       case 'active':
@@ -245,7 +365,6 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart3 },
     { id: 'agents', name: 'Team & chatbots', icon: UserCog },
-    { id: 'custom-limits', name: 'Custom Limits', icon: Settings2 },
   ];
 
   return (
@@ -427,35 +546,192 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                       <CardTitle>Usage Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Storage Used:</span>
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-muted-foreground shrink-0">Storage Used:</span>
                         <span className="font-medium">{formatFileSize(clientData?.currentDataSize)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Storage Limit:</span>
-                        <span className="font-medium">{formatFileSize(clientData?.usageDetails?.maxStorage)}</span>
+                      <div className="flex justify-between items-center gap-2 min-h-9">
+                        <span className="text-muted-foreground shrink-0">Storage Limit:</span>
+                        {usageEditing === 'maxStorage' ? (
+                          <div className="flex items-center gap-1 flex-wrap justify-end">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={usageEditDraft}
+                              onChange={(e) => setUsageEditDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') commitUsageEdit();
+                                if (e.key === 'Escape') cancelUsageEdit();
+                              }}
+                              className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                              disabled={customLimitsLoading}
+                            />
+                            <span className="text-xs text-muted-foreground">MB</span>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={commitUsageEdit} disabled={customLimitsLoading} title="Save">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={cancelUsageEdit} disabled={customLimitsLoading} title="Cancel">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">{formatFileSize(clientData?.usageDetails?.maxStorage)}</span>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => startUsageEdit('maxStorage')} disabled={customLimitsLoading} title="Edit storage limit">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">AI chatbots:</span>
-                        <span className="font-medium">
-                          {clientData?.usageDetails?.totalAiAgents ?? clientData?.usageDetails?.totalAgents ?? 0} / {clientData?.usageDetails?.maxAgents || 0}
-                        </span>
+                      <div className="flex justify-between items-center gap-2 min-h-9">
+                        <span className="text-muted-foreground shrink-0">AI chatbots:</span>
+                        {usageEditing === 'maxAgents' ? (
+                          <div className="flex items-center gap-1 flex-wrap justify-end">
+                            <span className="text-sm text-muted-foreground">
+                              {clientData?.usageDetails?.totalAiAgents ?? clientData?.usageDetails?.totalAgents ?? 0} /
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={usageEditDraft}
+                              onChange={(e) => setUsageEditDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') commitUsageEdit();
+                                if (e.key === 'Escape') cancelUsageEdit();
+                              }}
+                              className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                              disabled={customLimitsLoading}
+                            />
+                            <span className="text-xs text-muted-foreground">max</span>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={commitUsageEdit} disabled={customLimitsLoading} title="Save">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={cancelUsageEdit} disabled={customLimitsLoading} title="Cancel">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">
+                              {clientData?.usageDetails?.totalAiAgents ?? clientData?.usageDetails?.totalAgents ?? 0} / {clientData?.usageDetails?.maxAgents || 0}
+                            </span>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => startUsageEdit('maxAgents')} disabled={customLimitsLoading} title="Edit max AI chatbots">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Human agents:</span>
-                        <span className="font-medium">{clientData?.usageDetails?.totalHumanAgents ?? 0}</span>
+                      <div className="flex justify-between items-center gap-2 min-h-9">
+                        <span className="text-muted-foreground shrink-0">Human agents:</span>
+                        {usageEditing === 'maxHumanAgents' ? (
+                          <div className="flex items-center gap-1 flex-wrap justify-end">
+                            <span className="text-sm text-muted-foreground">
+                              {clientData?.usageDetails?.totalHumanAgents ?? 0} /
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={usageEditDraft}
+                              onChange={(e) => setUsageEditDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') commitUsageEdit();
+                                if (e.key === 'Escape') cancelUsageEdit();
+                              }}
+                              className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                              disabled={customLimitsLoading}
+                            />
+                            <span className="text-xs text-muted-foreground">max</span>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={commitUsageEdit} disabled={customLimitsLoading} title="Save">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={cancelUsageEdit} disabled={customLimitsLoading} title="Cancel">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">
+                              {clientData?.usageDetails?.totalHumanAgents ?? 0} / {clientData?.usageDetails?.maxHumanAgents ?? 0}
+                            </span>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => startUsageEdit('maxHumanAgents')} disabled={customLimitsLoading} title="Edit max human agents">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Conversations:</span>
-                        <span className="font-medium">
-                          {clientData?.usageDetails?.totalConversations || 0} / {clientData?.usageDetails?.maxQueries || 0}
-                        </span>
+                      <div className="flex justify-between items-center gap-2 min-h-9">
+                        <span className="text-muted-foreground shrink-0">Conversations:</span>
+                        {usageEditing === 'maxQueries' ? (
+                          <div className="flex items-center gap-1 flex-wrap justify-end">
+                            <span className="text-sm text-muted-foreground">
+                              {clientData?.usageDetails?.totalConversations || 0} /
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={usageEditDraft}
+                              onChange={(e) => setUsageEditDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') commitUsageEdit();
+                                if (e.key === 'Escape') cancelUsageEdit();
+                              }}
+                              className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                              disabled={customLimitsLoading}
+                            />
+                            <span className="text-xs text-muted-foreground">max / mo</span>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={commitUsageEdit} disabled={customLimitsLoading} title="Save">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={cancelUsageEdit} disabled={customLimitsLoading} title="Cancel">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">
+                              {clientData?.usageDetails?.totalConversations || 0} / {clientData?.usageDetails?.maxQueries || 0}
+                            </span>
+                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => startUsageEdit('maxQueries')} disabled={customLimitsLoading} title="Edit max conversations">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Pages Added:</span>
-                        <span className="font-medium">
-                          {clientData?.pagesAdded?.success || 0} success, {clientData?.pagesAdded?.failed || 0} failed
-                        </span>
+                      {activeTab === 'overview' && (customLimitsSuccess || customLimitsError) && (
+                        <div className="text-sm pt-2 border-t mt-1 space-y-1">
+                          {customLimitsSuccess && (
+                            <p className="text-green-700 flex items-center gap-1">
+                              <CheckCircle2 className="h-4 w-4 shrink-0" />
+                              {customLimitsSuccess}
+                            </p>
+                          )}
+                          {customLimitsError && (
+                            <p className="text-destructive flex items-center gap-1">
+                              <XCircle className="h-4 w-4 shrink-0" />
+                              {customLimitsError}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="text-muted-foreground shrink-0">Pages Added:</span>
+                        <div className="text-right">
+                          {(() => {
+                            const p = getPagesAddedFailedDisplay(clientData?.pagesAdded);
+                            return (
+                              <>
+                                <span className="font-medium">
+                                  {p.success} success, {p.failed} failed
+                                </span>
+                                
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Files Added:</span>
@@ -499,89 +775,6 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                     </CardContent>
                   </Card>
                 )}
-              </div>
-            )}
-
-            {activeTab === 'custom-limits' && (
-              <div className="space-y-6 max-w-xl">
-                <p className="text-sm text-muted-foreground">
-                  Enable custom limits to override this client&apos;s plan limits. Leave a field blank to
-                  inherit the plan default for that dimension.
-                </p>
-
-                {/* Enable toggle */}
-                <div className="flex items-center gap-3">
-                  <input
-                    id="isCustomLimits"
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300"
-                    checked={customLimitsForm.isCustomLimits}
-                    onChange={(e) =>
-                      setCustomLimitsForm((f) => ({ ...f, isCustomLimits: e.target.checked }))
-                    }
-                  />
-                  <label htmlFor="isCustomLimits" className="text-sm font-medium select-none">
-                    Enable custom limits for this client
-                  </label>
-                  {clientData?.usageDetails?.isCustomLimits && (
-                    <Badge variant="default" className="ml-2 bg-amber-500 text-white">Active</Badge>
-                  )}
-                </div>
-
-                {/* Limit fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { key: 'maxQueries', label: 'Max Conversations / month', placeholder: 'e.g. 5000' },
-                    { key: 'maxAgents', label: 'Max AI Chatbots', placeholder: 'e.g. 10' },
-                    { key: 'maxHumanAgents', label: 'Max Human Agents', placeholder: 'e.g. 5' },
-                    { key: 'maxStorage', label: 'Max Storage (bytes)', placeholder: 'e.g. 104857600' },
-                  ].map(({ key, label, placeholder }) => (
-                    <div key={key} className="space-y-1">
-                      <label className="text-sm font-medium text-muted-foreground">{label}</label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder={placeholder}
-                        disabled={!customLimitsForm.isCustomLimits}
-                        value={customLimitsForm[key]}
-                        onChange={(e) =>
-                          setCustomLimitsForm((f) => ({ ...f, [key]: e.target.value }))
-                        }
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Current plan limits for reference */}
-                {clientData && (
-                  <div className="rounded-md border p-4 bg-muted/40 text-xs space-y-1">
-                    <p className="font-semibold text-sm mb-2">Current plan limits (for reference)</p>
-                    <div className="flex justify-between"><span>Plan:</span><span className="font-medium">{clientData.plan || 'free'}</span></div>
-                    <div className="flex justify-between"><span>Max AI chatbots:</span><span>{clientData.usageDetails?.maxAgents ?? '—'}</span></div>
-                    <div className="flex justify-between"><span>Max conversations:</span><span>{clientData.usageDetails?.maxQueries ?? '—'}</span></div>
-                    <div className="flex justify-between"><span>Max storage:</span><span>{formatFileSize(clientData.usageDetails?.maxStorage)}</span></div>
-                    <div className="flex justify-between"><span>Max human agents:</span><span>{clientData.usageDetails?.maxHumanAgents ?? '—'}</span></div>
-                  </div>
-                )}
-
-                {/* Feedback */}
-                {customLimitsSuccess && (
-                  <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    {customLimitsSuccess}
-                  </div>
-                )}
-                {customLimitsError && (
-                  <div className="flex items-center gap-2 text-sm text-destructive bg-red-50 border border-red-200 rounded-md px-3 py-2">
-                    <XCircle className="w-4 h-4" />
-                    {customLimitsError}
-                  </div>
-                )}
-
-                <Button onClick={saveCustomLimits} disabled={customLimitsLoading}>
-                  {customLimitsLoading ? 'Saving…' : 'Save custom limits'}
-                </Button>
               </div>
             )}
 

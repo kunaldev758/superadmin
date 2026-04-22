@@ -19,6 +19,8 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 
+const BYTES_PER_MB = 1024 * 1024;
+
 const getDefaultPlanFormData = () => ({
   name: '',
   displayName: '',
@@ -26,11 +28,11 @@ const getDefaultPlanFormData = () => ({
   pricing: {
     monthly: 0,
     yearly: 0,
-    currency: 'USD'
+    x: 'USD'
   },
   limits: {
     maxQueries: 100,
-    maxStorage: 10485760,
+    maxStorage: 10,
     maxAgentsPerAccount: 1,
     maxHumanAgentsPerAccount: 1
   },
@@ -49,11 +51,20 @@ const getDefaultPlanFormData = () => ({
 const buildFormDataFromPlan = (plan) => {
   const base = getDefaultPlanFormData();
   if (!plan) return base;
+  const limitsFromPlan = plan.limits || {};
+  const maxStorageMb =
+    limitsFromPlan.maxStorage != null && limitsFromPlan.maxStorage !== ''
+      ? limitsFromPlan.maxStorage / BYTES_PER_MB
+      : base.limits.maxStorage;
   return {
     ...base,
     ...plan,
     pricing: { ...base.pricing, ...(plan.pricing || {}) },
-    limits: { ...base.limits, ...(plan.limits || {}) },
+    limits: {
+      ...base.limits,
+      ...limitsFromPlan,
+      maxStorage: maxStorageMb,
+    },
     metadata: {
       ...base.metadata,
       ...(plan.metadata || {}),
@@ -88,7 +99,7 @@ function PlanFormModal({ show, onClose, onSubmit, plan = null, title }) {
       limits: {
         ...fd.limits,
         maxQueries: coerceNum(fd.limits?.maxQueries, 0),
-        maxStorage: coerceNum(fd.limits?.maxStorage, 0),
+        maxStorage: Math.round(coerceNum(fd.limits?.maxStorage, 0) * BYTES_PER_MB),
         maxAgentsPerAccount: coerceNum(fd.limits?.maxAgentsPerAccount, 1),
         maxHumanAgentsPerAccount: coerceNum(fd.limits?.maxHumanAgentsPerAccount, 1)
       },
@@ -240,13 +251,14 @@ function PlanFormModal({ show, onClose, onSubmit, plan = null, title }) {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Max Storage (bytes)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Storage (MB)</label>
                 <input
                   type="number"
                   value={numberFieldValue(formData.limits?.maxStorage)}
-                  onChange={(e) => updateFormData('limits.maxStorage', parseIntInput(e.target.value))}
+                  onChange={(e) => updateFormData('limits.maxStorage', parseFloatInput(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   min="0"
+                  step="0.01"
                 />
               </div>
 
