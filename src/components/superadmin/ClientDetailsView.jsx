@@ -63,6 +63,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
       if (response.ok) {
         const data = await response.json();
         if (data.data) {
+          console.log(data.data,"data.data");
           setClientData(data.data);
         } else {
           setError('Client not found');
