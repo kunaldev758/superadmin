@@ -18,6 +18,7 @@ import {
   BarChart3,
   ArrowUpDown
 } from 'lucide-react';
+import { superadminFetch } from '@/lib/superadminFetch';
 
 const BYTES_PER_MB = 1024 * 1024;
 
@@ -389,20 +390,15 @@ const PlanManagementPanel = () => {
 
   // API Configuration - replace with your actual API base URL
   const apiUrl = import.meta.env.VITE_API_URL;
-
-  const getAuthToken = () => localStorage.getItem('superAdminToken'); // Replace with your token storage method
-
-  // API Functions
+  
   const apiCall = async (endpoint, options = {}) => {
+    const { headers: optHeaders = {}, ...rest } = options;
     try {
-      const token = getAuthToken();
-      const response = await fetch(`${apiUrl}${endpoint}`, {
+      const response = await superadminFetch(`${apiUrl}${endpoint}`, {
+        ...rest,
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          ...options.headers
+          ...optHeaders,
         },
-        ...options
       });
 
       if (!response.ok) {

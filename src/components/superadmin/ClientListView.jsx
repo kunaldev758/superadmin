@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { superadminFetch } from '@/lib/superadminFetch';
 
 const ClientListView = ({ onViewDetails }) => {
   const [clients, setClients] = useState([]);
@@ -48,7 +49,6 @@ const ClientListView = ({ onViewDetails }) => {
   const fetchClients = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('superAdminToken');
       const params = new URLSearchParams({
         page: String(currentPage),
         limit: String(itemsPerPage),
@@ -58,12 +58,9 @@ const ClientListView = ({ onViewDetails }) => {
       if (debouncedSearch.trim()) {
         params.set('search', debouncedSearch.trim());
       }
-      const response = await fetch(`${apiUrl}/clients?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await superadminFetch(
+        `${apiUrl}/clients?${params.toString()}`
+      );
 
       if (response.ok) {
         const data = await response.json();

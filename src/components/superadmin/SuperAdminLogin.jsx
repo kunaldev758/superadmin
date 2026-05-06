@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { superadminFetch } from '@/lib/superadminFetch';
 
 const SuperAdminLogin = ({ onLogin }) => {
   const [formData, setFormData] = useState({
@@ -30,19 +31,18 @@ const SuperAdminLogin = ({ onLogin }) => {
     setError('');
 
     try {
-      const response = await fetch(`${apiUrl}/login`, {
+      const response = await superadminFetch(`${apiUrl}/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(formData),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('superAdminToken', data.token);
-        localStorage.setItem('superAdminData', JSON.stringify(data.superAdmin));
+        localStorage.removeItem('superAdminToken');
+        if (data.superAdmin) {
+          localStorage.setItem('superAdminData', JSON.stringify(data.superAdmin));
+        }
         if (onLogin) {
           onLogin();
         } else {

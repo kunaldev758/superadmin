@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { superadminFetch } from '@/lib/superadminFetch';
 
 /** Plan limits and custom limits maxStorage are stored in bytes; the form uses MB like PlanManagementPanel. */
 const BYTES_PER_MB = 1024 * 1024;
@@ -52,13 +53,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   const fetchClientDetails = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('superAdminToken');
-      const response = await fetch(`${apiUrl}/clients/${clientId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await superadminFetch(`${apiUrl}/clients/${clientId}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -83,13 +78,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
     
     try {
       setAgentsLoading(true);
-      const token = localStorage.getItem('superAdminToken');
-      const response = await fetch(`${apiUrl}/clients/${clientId}/agents`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await superadminFetch(`${apiUrl}/clients/${clientId}/agents`);
 
       if (response.ok) {
         const data = await response.json();
@@ -110,14 +99,10 @@ const ClientDetailsView = ({ clientId, onBack }) => {
     
     try {
       setCancelLoading(true);
-      const token = localStorage.getItem('superAdminToken');
-      const response = await fetch(`${apiUrl}/cancel/sunscription/${clientId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await superadminFetch(
+        `${apiUrl}/cancel/sunscription/${clientId}`,
+        { method: 'GET' }
+      );
 
       if (response.ok) {
         alert('Subscription cancelled successfully');
@@ -138,15 +123,13 @@ const ClientDetailsView = ({ clientId, onBack }) => {
     setCustomLimitsError('');
     try {
       setCustomLimitsLoading(true);
-      const token = localStorage.getItem('superAdminToken');
-      const response = await fetch(`${apiUrl}/clients/${clientId}/custom-limits`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await superadminFetch(
+        `${apiUrl}/clients/${clientId}/custom-limits`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        }
+      );
       const data = await response.json().catch(() => ({}));
       if (response.ok) {
         setCustomLimitsSuccess(data.message || 'Limits saved successfully');

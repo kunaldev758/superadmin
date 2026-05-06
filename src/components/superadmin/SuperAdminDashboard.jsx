@@ -23,6 +23,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, PieChart as Rech
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { superadminFetch } from '@/lib/superadminFetch';
 
 // GPT-4.1 Standard API — $2/1M input, $8/1M output (platform.openai.com/docs/pricing).
 // Usage is stored as a single total; approximate cost with a typical chat input/output split.
@@ -41,31 +42,20 @@ const estimateGpt41CostUsd = (totalTokens) => {
   );
 };
 
-const SuperAdminDashboard = () => {
+const SuperAdminDashboard = ({ onNavigate, superAdminUser, onLogout }) => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [superAdmin, setSuperAdmin] = useState(null);
 
   const apiUrl = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
-    const adminData = localStorage.getItem('superAdminData');
-    if (adminData) {
-      setSuperAdmin(JSON.parse(adminData));
-    }
     fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('superAdminToken');
-      const response = await fetch(`${apiUrl}/dashboard`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await superadminFetch(`${apiUrl}/dashboard`);
 
       if (response.ok) {
         const data = await response.json();
@@ -82,8 +72,12 @@ const SuperAdminDashboard = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('superAdminToken');
+    if (onLogout) {
+      onLogout();
+      return;
+    }
     localStorage.removeItem('superAdminData');
+    localStorage.removeItem('superAdminToken');
     window.location.href = '/login';
   };
 
@@ -149,7 +143,7 @@ const SuperAdminDashboard = () => {
                 <RotateCw className="w-4 h-4" />
               </Button>
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground">Welcome, {superAdmin?.name}</span>
+                <span className="text-sm text-muted-foreground">Welcome, {superAdminUser?.name}</span>
                 <Button
                   onClick={handleLogout}
                   variant="ghost"
