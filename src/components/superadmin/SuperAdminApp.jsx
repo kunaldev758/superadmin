@@ -8,34 +8,71 @@ import SuperAdminLogin from './SuperAdminLogin';
 import SuperAdminDashboard from './SuperAdminDashboard';
 import ClientManagement from './ClientManagement';
 import PlanManagementPanel from './PlanManagementPanel';
+import { superadminFetch } from '@/lib/superadminFetch';
 
 const SuperAdminApp = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
   const [superAdmin, setSuperAdmin] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const apiUrl = import.meta.env.VITE_API_URL;
+
   useEffect(() => {
-    const token = localStorage.getItem('superAdminToken');
-    const adminData = localStorage.getItem('superAdminData');
-    
-    if (token && adminData) {
-      setIsAuthenticated(true);
-      setSuperAdmin(JSON.parse(adminData));
-    }
-  }, []);
+    let cancelled = false;
+    localStorage.removeItem('superAdminToken');
+
+    (async () => {
+      try {
+        const res = await superadminFetch(`${apiUrl}/me`);
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          const profile = data.superAdmin;
+          setIsAuthenticated(true);
+          setSuperAdmin(profile);
+          if (profile) {
+            localStorage.setItem('superAdminData', JSON.stringify(profile));
+          }
+        } else {
+          setIsAuthenticated(false);
+          setSuperAdmin(null);
+          localStorage.removeItem('superAdminData');
+        }
+      } catch {
+        if (!cancelled) {
+          setIsAuthenticated(false);
+          setSuperAdmin(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setAuthReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiUrl]);
 
   const handleLogin = () => {
-    setIsAuthenticated(true);
     const adminData = localStorage.getItem('superAdminData');
+    setIsAuthenticated(true);
     if (adminData) {
       setSuperAdmin(JSON.parse(adminData));
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('superAdminToken');
+  const handleLogout = async () => {
+    try {
+      await superadminFetch(`${apiUrl}/logout`, { method: 'POST' });
+    } catch {
+      /* still clear local session */
+    }
     localStorage.removeItem('superAdminData');
+    localStorage.removeItem('superAdminToken');
     setIsAuthenticated(false);
     setSuperAdmin(null);
     setCurrentView('dashboard');
@@ -53,6 +90,14 @@ const SuperAdminApp = () => {
     // { id: 'agents', name: 'Agents', icon: UserCog },
     // { id: 'conversations', name: 'Conversations', icon: MessageSquare },
   ];
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center text-muted-foreground">Loading…</div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <SuperAdminLogin onLogin={handleLogin} />;
@@ -139,7 +184,11 @@ const SuperAdminApp = () => {
       {/* Main Content */}
       <div className="lg:ml-64">
         {currentView === 'dashboard' && (
-          <SuperAdminDashboard onNavigate={handleNavigate} />
+          <SuperAdminDashboard
+            onNavigate={handleNavigate}
+            superAdminUser={superAdmin}
+            onLogout={handleLogout}
+          />
         )}
         {currentView === 'clients' && (
           <ClientManagement />

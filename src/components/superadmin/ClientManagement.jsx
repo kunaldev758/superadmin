@@ -20,13 +20,14 @@ const ClientManagement = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {currentView === 'list' && (
+      {/* Keep list mounted while viewing details so pagination, page size, sort, and search persist */}
+      <div className={currentView === 'list' ? 'block' : 'hidden'} aria-hidden={currentView !== 'list'}>
         <ClientListView onViewDetails={handleViewDetails} />
-      )}
+      </div>
       {currentView === 'details' && (
-        <ClientDetailsView 
-          clientId={selectedClientId} 
-          onBack={handleBackToList} 
+        <ClientDetailsView
+          clientId={selectedClientId}
+          onBack={handleBackToList}
         />
       )}
     </div>

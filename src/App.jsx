@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import SuperAdminLogin from './components/superadmin/SuperAdminLogin';
-import SuperAdminDashboard from './components/superadmin/SuperAdminDashboard';
 import SuperAdminApp from './components/superadmin/SuperAdminApp';
 import './App.css'
 
