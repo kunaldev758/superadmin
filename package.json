@@ -29,6 +29,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@locator/babel-jsx": "^0.5.1",
+    "@locator/runtime": "^0.5.1",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
@@ -37,6 +39,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "tw-animate-css": "^1.3.4",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vite-plugin-react-click-to-component": "^4.2.2"
   }
 }
