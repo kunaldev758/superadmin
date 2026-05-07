@@ -1,30 +1,37 @@
-import React, { useState, useEffect, useCallback, useRef, Fragment } from 'react';
-import { 
-  Users, 
-  Eye, 
-  Search, 
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  Fragment,
+} from "react";
+import {
+  Users,
+  Eye,
+  Search,
   ArrowUpDown,
   Calendar,
   MessageSquare,
   UserCog,
   RotateCw,
-  ChevronRight
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { superadminFetch } from '@/lib/superadminFetch';
+  ChevronRight,
+  LogIn,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { superadminFetch } from "@/lib/superadminFetch";
 
 const ClientListView = ({ onViewDetails }) => {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sortBy, setSortBy] = useState('createdAt');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortBy, setSortBy] = useState("createdAt");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortOrder, setSortOrder] = useState("desc");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -56,10 +63,10 @@ const ClientListView = ({ onViewDetails }) => {
         sortOrder,
       });
       if (debouncedSearch.trim()) {
-        params.set('search', debouncedSearch.trim());
+        params.set("search", debouncedSearch.trim());
       }
       const response = await superadminFetch(
-        `${apiUrl}/clients?${params.toString()}`
+        `${apiUrl}/clients?${params.toString()}`,
       );
 
       if (response.ok) {
@@ -69,10 +76,10 @@ const ClientListView = ({ onViewDetails }) => {
           setPagination(data.pagination);
         }
       } else {
-        console.error('Failed to fetch clients');
+        console.error("Failed to fetch clients");
       }
     } catch (error) {
-      console.error('Network error occurred:', error);
+      console.error("Network error occurred:", error);
     } finally {
       setLoading(false);
     }
@@ -83,58 +90,89 @@ const ClientListView = ({ onViewDetails }) => {
   }, [fetchClients]);
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
   const formatFileSize = (bytes) => {
-    if (!bytes || bytes === 0) return '0 B';
+    if (!bytes || bytes === 0) return "0 B";
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   const totalPages = pagination.totalPages;
   const totalCount = pagination.totalCount;
-  const startIndex = totalCount === 0 ? 0 : (pagination.page - 1) * pagination.limit;
+  const startIndex =
+    totalCount === 0 ? 0 : (pagination.page - 1) * pagination.limit;
+
+
+    const handleLoginAsClient = async(clientId)=>{
+
+      let apiToCall = `${apiUrl}/clients/login/${clientId}`;
+
+      console.log("api to Call : ",apiToCall);
+      try{
+
+        const response = await superadminFetch(`${apiToCall}`, {
+          method: 'Get',
+        });
+        const data = await response.json();
+
+        if(data.success){
+
+          // create an new frontend url with the token as query param and open in new tab
+
+          const clientLoginUrl = `${import.meta.env.VITE_FRONTEND_URL}?token=${data.token}`;
+
+          window.open(clientLoginUrl, '_blank');
+        }
+
+        console.log("direct client login response : ",data);
+
+      }catch(error){
+
+        console.log("Error logging in as client:", error);
+      }
+    }
 
   const handleSort = (field) => {
     if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
       setSortBy(field);
-      setSortOrder('desc');
+      setSortOrder("desc");
     }
     setCurrentPage(1);
   };
 
   const getPlanBadgeVariant = (plan) => {
     switch (plan?.toLowerCase()) {
-      case 'premium':
-        return 'default';
-      case 'pro':
-        return 'secondary';
-      case 'free':
-        return 'outline';
+      case "premium":
+        return "default";
+      case "pro":
+        return "secondary";
+      case "free":
+        return "outline";
       default:
-        return 'outline';
+        return "outline";
     }
   };
 
   const getStatusBadgeVariant = (status) => {
     switch (status?.toLowerCase()) {
-      case 'active':
-        return 'default';
-      case 'inactive':
-        return 'secondary';
-      case 'cancelled':
-        return 'destructive';
+      case "active":
+        return "default";
+      case "inactive":
+        return "secondary";
+      case "cancelled":
+        return "destructive";
       default:
-        return 'outline';
+        return "outline";
     }
   };
 
@@ -169,9 +207,11 @@ const ClientListView = ({ onViewDetails }) => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header Info */}
-        <div className='text-left mb-6'>
-          <h4 className='text-lg font-bold'>Client Directory</h4>
-          <p className='text-sm text-muted-foreground'>Manage and monitor all registered clients in your system</p>
+        <div className="text-left mb-6">
+          <h4 className="text-lg font-bold">Client Directory</h4>
+          <p className="text-sm text-muted-foreground">
+            Manage and monitor all registered clients in your system
+          </p>
         </div>
 
         <Card>
@@ -181,8 +221,8 @@ const ClientListView = ({ onViewDetails }) => {
                 <span className="text-sm text-muted-foreground">
                   Show {itemsPerPage} entries per page
                 </span>
-                <select 
-                  value={itemsPerPage} 
+                <select
+                  value={itemsPerPage}
                   onChange={(e) => {
                     setItemsPerPage(Number(e.target.value));
                     setCurrentPage(1);
@@ -212,8 +252,8 @@ const ClientListView = ({ onViewDetails }) => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th 
-                      onClick={() => handleSort('email')}
+                    <th
+                      onClick={() => handleSort("email")}
                       className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
                     >
                       <div className="flex items-center space-x-1">
@@ -221,8 +261,8 @@ const ClientListView = ({ onViewDetails }) => {
                         <ArrowUpDown className="w-4 h-4" />
                       </div>
                     </th>
-                    <th 
-                      onClick={() => handleSort('plan')}
+                    <th
+                      onClick={() => handleSort("plan")}
                       className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
                     >
                       <div className="flex items-center space-x-1">
@@ -230,8 +270,8 @@ const ClientListView = ({ onViewDetails }) => {
                         <ArrowUpDown className="w-4 h-4" />
                       </div>
                     </th>
-                    <th 
-                      onClick={() => handleSort('agents')}
+                    <th
+                      onClick={() => handleSort("agents")}
                       className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
                     >
                       <div className="flex items-center space-x-1">
@@ -239,8 +279,8 @@ const ClientListView = ({ onViewDetails }) => {
                         <ArrowUpDown className="w-4 h-4" />
                       </div>
                     </th>
-                    <th 
-                      onClick={() => handleSort('conversations')}
+                    <th
+                      onClick={() => handleSort("conversations")}
                       className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
                     >
                       <div className="flex items-center space-x-1">
@@ -248,8 +288,8 @@ const ClientListView = ({ onViewDetails }) => {
                         <ArrowUpDown className="w-4 h-4" />
                       </div>
                     </th>
-                    <th 
-                      onClick={() => handleSort('contentSize')}
+                    <th
+                      onClick={() => handleSort("contentSize")}
                       className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
                     >
                       <div className="flex items-center space-x-1">
@@ -257,8 +297,8 @@ const ClientListView = ({ onViewDetails }) => {
                         <ArrowUpDown className="w-4 h-4" />
                       </div>
                     </th>
-                    <th 
-                      onClick={() => handleSort('createdAt')}
+                    <th
+                      onClick={() => handleSort("createdAt")}
                       className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
                     >
                       <div className="flex items-center space-x-1">
@@ -267,9 +307,11 @@ const ClientListView = ({ onViewDetails }) => {
                       </div>
                     </th>
                     <th className="text-left p-4 font-medium">Plan Status</th>
-                    <th className="text-left p-4 font-medium">Payment Status</th>
-                    <th 
-                      onClick={() => handleSort('totalAmountPaid')}
+                    <th className="text-left p-4 font-medium">
+                      Payment Status
+                    </th>
+                    <th
+                      onClick={() => handleSort("totalAmountPaid")}
                       className="text-left p-4 font-medium cursor-pointer hover:bg-gray-100"
                     >
                       <div className="flex items-center space-x-1">
@@ -282,25 +324,32 @@ const ClientListView = ({ onViewDetails }) => {
                 </thead>
                 <tbody>
                   {clients.map((client, index) => (
-                    <tr 
-                      key={client._id} 
+                    <tr
+                      key={client._id}
                       className={`hover:bg-blue-50 transition-colors ${
-                        index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                        index % 2 === 0 ? "bg-white" : "bg-gray-50"
                       }`}
                     >
                       <td className="p-4">
-                        <div className="font-medium">{client?.email || 'N/A'}</div>
+                        <div className="font-medium">
+                          {client?.email || "N/A"}
+                        </div>
                       </td>
                       <td className="p-4">
                         <Badge variant={getPlanBadgeVariant(client.plan)}>
-                          {client.plan || 'Free'}
+                          {client.plan || "Free"}
                         </Badge>
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-center text-sm">
                             <UserCog className="w-4 h-4 text-muted-foreground mr-1 shrink-0" />
-                            <span>AI {(client.usageDetails?.totalAiAgents ?? client.usageDetails?.totalAgents) || 0}</span>
+                            <span>
+                              AI{" "}
+                              {(client.usageDetails?.totalAiAgents ??
+                                client.usageDetails?.totalAgents) ||
+                                0}
+                            </span>
                             <span className="text-xs text-muted-foreground ml-1">
                               /{client.usageDetails?.maxAgents || 0}
                             </span>
@@ -313,12 +362,16 @@ const ClientListView = ({ onViewDetails }) => {
                       <td className="p-4">
                         <div className="flex items-center">
                           <MessageSquare className="w-4 h-4 text-muted-foreground mr-1" />
-                          <span>{client.usageDetails?.totalConversations || 0}</span>
+                          <span>
+                            {client.usageDetails?.totalConversations || 0}
+                          </span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div>
-                          <div className="text-sm">{formatFileSize(client.currentDataSize)}</div>
+                          <div className="text-sm">
+                            {formatFileSize(client.currentDataSize)}
+                          </div>
                           <div className="text-xs text-muted-foreground">
                             /{formatFileSize(client.usageDetails?.maxStorage)}
                           </div>
@@ -331,13 +384,21 @@ const ClientListView = ({ onViewDetails }) => {
                         </div>
                       </td>
                       <td className="p-4">
-                        <Badge variant={getStatusBadgeVariant(client.planStatus)}>
-                          {client.planStatus || 'Active'}
+                        <Badge
+                          variant={getStatusBadgeVariant(client.planStatus)}
+                        >
+                          {client.planStatus || "Active"}
                         </Badge>
                       </td>
                       <td className="p-4">
-                        <Badge variant={client.paymentStatus === 'paid' ? 'default' : 'secondary'}>
-                          {client.paymentStatus || 'Unpaid'}
+                        <Badge
+                          variant={
+                            client.paymentStatus === "paid"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {client.paymentStatus || "Unpaid"}
                         </Badge>
                       </td>
                       <td className="p-4">
@@ -346,29 +407,45 @@ const ClientListView = ({ onViewDetails }) => {
                         </div>
                       </td>
                       <td className="p-4">
-                        <Button
-                          onClick={() => onViewDetails(client._id)}
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-primary/10"
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View
-                          <ChevronRight className="w-4 h-4 ml-1" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {/* Impersonate Login Button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center cursor-pointer gap-2 rounded-lg border-primary/30 hover:bg-primary/10 hover:border-primary transition-all"
+                            onClick={() => handleLoginAsClient(client._id)}
+                          >
+                            <LogIn className="w-4 h-4" />
+                            Login
+                          </Button>
+
+                          {/* View Details Button */}
+                          <Button
+                            onClick={() => onViewDetails(client._id)}
+                            variant="ghost"
+                            size="sm"
+                            className="flex items-center gap-1 rounded-lg hover:bg-primary/10 transition-all"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>View</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            
+
             {clients.length === 0 && (
               <div className="text-center py-12">
                 <Users className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-sm font-medium">No clients found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {searchTerm ? 'Try adjusting your search criteria.' : 'No clients registered yet.'}
+                  {searchTerm
+                    ? "Try adjusting your search criteria."
+                    : "No clients registered yet."}
                 </p>
               </div>
             )}
@@ -377,7 +454,8 @@ const ClientListView = ({ onViewDetails }) => {
             {totalCount > 0 && (
               <div className="flex items-center justify-between px-2 py-4 bg-gray-50 rounded-b-lg mt-4">
                 <div className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {startIndex + clients.length} of {totalCount} results
+                  Showing {startIndex + 1} to {startIndex + clients.length} of{" "}
+                  {totalCount} results
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button
@@ -390,18 +468,23 @@ const ClientListView = ({ onViewDetails }) => {
                   </Button>
                   <div className="flex items-center space-x-1">
                     {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => 
-                        page === 1 || 
-                        page === totalPages || 
-                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      .filter(
+                        (page) =>
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1),
                       )
                       .map((page, index, array) => (
                         <Fragment key={page}>
                           {index > 0 && array[index - 1] !== page - 1 && (
-                            <span className="px-2 text-muted-foreground">...</span>
+                            <span className="px-2 text-muted-foreground">
+                              ...
+                            </span>
                           )}
                           <Button
-                            variant={currentPage === page ? "default" : "outline"}
+                            variant={
+                              currentPage === page ? "default" : "outline"
+                            }
                             size="sm"
                             onClick={() => setCurrentPage(page)}
                             className="w-8 h-8 p-0"
@@ -409,8 +492,7 @@ const ClientListView = ({ onViewDetails }) => {
                             {page}
                           </Button>
                         </Fragment>
-                      ))
-                    }
+                      ))}
                   </div>
                   <Button
                     variant="outline"
