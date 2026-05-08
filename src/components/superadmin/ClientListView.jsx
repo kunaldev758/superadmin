@@ -129,6 +129,8 @@ const ClientListView = ({ onViewDetails }) => {
 
           const clientLoginUrl = `${import.meta.env.VITE_FRONTEND_URL}?token=${data.token}`;
 
+          console.log("client login url : ",clientLoginUrl);
+
           window.open(clientLoginUrl, '_blank');
         }
 
