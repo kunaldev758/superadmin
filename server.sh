@@ -1,4 +1,4 @@
-ssh -i "C:\Users\sta\Desktop\chataffy-imp-data\chataffy-test.pem" ubuntu@34.213.132.47 << 'EOF'
+ssh -i "C:\Users\sta\Desktop\chataffy-imp-data\chataffy-key1.pem" ubuntu@34.213.132.47 << 'EOF'
 
 echo "========================================"
 echo "Starting Superadmin Deployment..."
