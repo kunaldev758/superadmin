@@ -38,6 +38,12 @@ npm install
 
 echo ""
 echo "[8/9] Building Vite production app..."
+if [ ! -f .env.production ]; then
+  echo "ERROR: .env.production is missing on the server. Aborting build to avoid baking the wrong VITE_API_URL into the bundle."
+  exit 1
+fi
+echo "Using VITE_API_URL from .env.production:"
+grep -E '^VITE_API_URL' .env.production || true
 npm run build
 
 echo ""

@@ -24,7 +24,10 @@ dist-ssr
 *.sw?
 
 
-.env*
+# Local-only env files (never commit secrets / per-machine values)
+.env
+.env.local
+.env.*.local
 
 
 
