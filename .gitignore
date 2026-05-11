@@ -28,6 +28,17 @@ dist-ssr
 *.sln
 *.sw?
 
+<<<<<<< HEAD
 # .server.sh
 
 .env*
+=======
+
+# Local-only env files (never commit secrets / per-machine values)
+.env
+.env.local
+.env.*.local
+
+
+
+>>>>>>> 201b68ff44d171b0238aa12287889dc07f9c6728
