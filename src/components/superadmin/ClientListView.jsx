@@ -127,7 +127,7 @@ const ClientListView = ({ onViewDetails }) => {
 
           // create an new frontend url with the token as query param and open in new tab
 
-          const clientLoginUrl = `${import.meta.env.VITE_FRONTEND_URL}?token=${data.token}`;
+          const clientLoginUrl = `${import.meta.env.VITE_FRONTEND_URL}/direct-client-login?token=${data.token}`;
 
           console.log("client login url : ",clientLoginUrl);
 
