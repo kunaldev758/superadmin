@@ -83,6 +83,7 @@ echo "[10/13] Creating .env.production..."
 
 cat > .env.production <<'ENVEOF'
 VITE_API_URL=/chataffy/chataffy/api/superadmin
+VITE_FRONTEND_URL=https://chataffy.com/chataffy/cahtaffy_fe
 ENVEOF
 
 echo ""
