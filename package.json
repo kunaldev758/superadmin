@@ -39,7 +39,6 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "tw-animate-css": "^1.3.4",
-    "vite": "^6.3.5",
-    "vite-plugin-react-click-to-component": "^4.2.2"
+    "vite": "^6.3.5"
   }
 }
