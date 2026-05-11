@@ -20,11 +20,11 @@ echo "Connected to EC2 Successfully"
 echo "========================================"
 
 echo ""
-echo "[1/12] Current Server User:"
+echo "[1/13] Current Server User:"
 whoami
 
 echo ""
-echo "[2/12] Moving to project directory..."
+echo "[2/13] Moving to project directory..."
 cd /var/www/html/chataffy/superadmin || exit 1
 
 echo ""
@@ -32,30 +32,35 @@ echo "Current Directory:"
 pwd
 
 echo ""
-echo "[3/12] Fixing git safe directory..."
+echo "[3/13] Fixing git safe directory..."
 git config --global --add safe.directory /var/www/html/chataffy/superadmin
 
 echo ""
-echo "[4/12] Fixing project ownership and permissions..."
+echo "[4/13] Fixing project ownership and permissions..."
 sudo chown -R ubuntu:ubuntu /var/www/html/chataffy/superadmin
 sudo chmod -R 755 /var/www/html/chataffy/superadmin
 
 echo ""
-echo "[5/12] Checking Node & NPM versions..."
+echo "[5/13] Checking Node & NPM versions..."
 node -v
 npm -v
 
 echo ""
-echo "[6/12] Current Git Branch on Server:"
-git branch --show-current
+echo "[6/13] Current Git Branch on Server:"
+git branch --show-current || true
 
 echo ""
-echo "[7/12] Fetching latest code from GitHub..."
+echo "[7/13] Cleaning old local changes..."
+git reset --hard
+git clean -fd
+
+echo ""
+echo "[8/13] Fetching latest code from GitHub..."
 git fetch origin
 
 echo ""
 echo "Switching to Branch: $CURRENT_BRANCH"
-git checkout $CURRENT_BRANCH
+git checkout -f $CURRENT_BRANCH
 
 echo ""
 echo "Resetting to latest origin/$CURRENT_BRANCH..."
@@ -70,11 +75,11 @@ echo "Latest Commit Details:"
 git log -1
 
 echo ""
-echo "[8/12] Installing npm dependencies..."
+echo "[9/13] Installing npm dependencies..."
 npm install
 
 echo ""
-echo "[9/12] Creating .env.production..."
+echo "[10/13] Creating .env.production..."
 
 cat > .env.production <<'ENVEOF'
 VITE_API_URL=/chataffy/chataffy/api/superadmin
@@ -85,7 +90,7 @@ echo "Generated .env.production:"
 cat .env.production
 
 echo ""
-echo "[10/12] Building Vite Application..."
+echo "[11/13] Building Vite Application..."
 npm run build
 
 echo ""
@@ -93,7 +98,7 @@ echo "Checking build folder..."
 ls -la dist
 
 echo ""
-echo "[11/12] Reloading Nginx..."
+echo "[12/13] Reloading Nginx..."
 sudo systemctl reload nginx
 
 echo ""
@@ -101,7 +106,7 @@ echo "Nginx Status:"
 sudo systemctl status nginx --no-pager
 
 echo ""
-echo "[12/12] Deployment Verification Completed"
+echo "[13/13] Deployment Verification Completed"
 
 echo ""
 echo "========================================"
