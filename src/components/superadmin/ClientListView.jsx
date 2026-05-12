@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { superadminFetch } from "@/lib/superadminFetch";
 
-const ClientListView = ({ onViewDetails }) => {
+const ClientListView = ({ onViewDetails, listRefreshKey = 0 }) => {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -87,7 +87,7 @@ const ClientListView = ({ onViewDetails }) => {
 
   useEffect(() => {
     fetchClients();
-  }, [fetchClients]);
+  }, [fetchClients, listRefreshKey]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
