@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { superadminFetch } from '@/lib/superadminFetch';
+import { toast } from 'react-toastify';
 
 const SuperAdminLogin = ({ onLogin }) => {
   const [formData, setFormData] = useState({
@@ -35,6 +36,8 @@ const SuperAdminLogin = ({ onLogin }) => {
         method: 'POST',
         body: JSON.stringify(formData),
       });
+
+      toast.success("Login Successfully");
 
       const data = await response.json();
 

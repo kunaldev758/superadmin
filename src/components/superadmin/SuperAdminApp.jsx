@@ -9,6 +9,7 @@ import SuperAdminDashboard from './SuperAdminDashboard';
 import ClientManagement from './ClientManagement';
 import PlanManagementPanel from './PlanManagementPanel';
 import { superadminFetch } from '@/lib/superadminFetch';
+import { toast } from 'react-toastify';
 
 const SuperAdminApp = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -68,6 +69,7 @@ const SuperAdminApp = () => {
   const handleLogout = async () => {
     try {
       await superadminFetch(`${apiUrl}/logout`, { method: 'POST' });
+      toast.success("Logout Successfully");
     } catch {
       /* still clear local session */
     }

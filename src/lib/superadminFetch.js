@@ -1,3 +1,5 @@
+import { toast } from 'react-toastify'
+
 const SUPERADMIN_LOGIN_PATH =
   (import.meta.env.BASE_URL || "/chataffy/superadmin/").replace(/\/?$/, "/");
 const API_URL = import.meta.env.VITE_API_URL;
@@ -16,19 +18,27 @@ async function clearSuperAdminSessionCookie() {
       method: "POST",
       credentials: "include",
     });
+  toast.success("Logout Successfully");
   } catch {
    
   }
 }
 
+let isRedirecting = false;
 export async function redirectToSuperAdminLogin() {
+  if (isRedirecting) return;
+
+  isRedirecting = true;
+
   localStorage.removeItem("superAdminData");
   await clearSuperAdminSessionCookie();
-  window.location.href = SUPERADMIN_LOGIN_PATH;
+
+  setTimeout(() => {
+    window.location.href = SUPERADMIN_LOGIN_PATH;
+  }, 500);
 }
 
 function shouldRedirectOnUnauthorized(requestUrl) {
-  // Initial auth check, login failures, and logout are handled separately.
   return (
     !requestUrl.includes("/login") &&
     !requestUrl.includes("/me") &&
