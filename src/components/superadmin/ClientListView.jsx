@@ -49,7 +49,7 @@ const ClientListView = ({ onViewDetails, listRefreshKey = 0 }) => {
       }
       lastDebouncedSearchRef.current = searchTerm;
       setDebouncedSearch(searchTerm);
-    }, 300);
+    }, 1000);
     return () => clearTimeout(t);
   }, [searchTerm]);
 
