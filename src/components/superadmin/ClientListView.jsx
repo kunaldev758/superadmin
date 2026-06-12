@@ -25,7 +25,8 @@ import { superadminFetch } from "@/lib/superadminFetch";
 
 const ClientListView = ({ onViewDetails, listRefreshKey = 0 }) => {
   const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(true);
+  const hasLoadedOnceRef = useRef(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
@@ -55,7 +56,7 @@ const ClientListView = ({ onViewDetails, listRefreshKey = 0 }) => {
 
   const fetchClients = useCallback(async () => {
     try {
-      setLoading(true);
+      setIsFetching(true);
       const params = new URLSearchParams({
         page: String(currentPage),
         limit: String(itemsPerPage),
@@ -81,7 +82,8 @@ const ClientListView = ({ onViewDetails, listRefreshKey = 0 }) => {
     } catch (error) {
       console.error("Network error occurred:", error);
     } finally {
-      setLoading(false);
+      setIsFetching(false);
+      hasLoadedOnceRef.current = true;
     }
   }, [apiUrl, currentPage, itemsPerPage, sortBy, sortOrder, debouncedSearch]);
 
@@ -178,7 +180,7 @@ const ClientListView = ({ onViewDetails, listRefreshKey = 0 }) => {
     }
   };
 
-  if (loading) {
+  if (isFetching && !hasLoadedOnceRef.current) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -250,8 +252,15 @@ const ClientListView = ({ onViewDetails, listRefreshKey = 0 }) => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="relative overflow-x-auto">
+              {isFetching && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 rounded-md">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              <table
+                className={`w-full transition-opacity ${isFetching ? "opacity-50 pointer-events-none" : ""}`}
+              >
                 <thead>
                   <tr className="bg-gray-50">
                     <th
