@@ -10,7 +10,7 @@ CURRENT_BRANCH=$(git branch --show-current)
 echo "Local Current Branch: $CURRENT_BRANCH"
 echo "Connecting to EC2..."
 
-ssh -i "C:\Users\sta\Desktop\chataffy-imp-data\chataffy-key1.pem" ubuntu@34.213.132.47 << EOF
+ssh -i "C:\Users\sta\Desktop\chataffy-imp-data\chataffy-live.pem" ubuntu@44.203.85.96 << EOF
 
 set -e
 
@@ -25,7 +25,7 @@ whoami
 
 echo ""
 echo "[2/13] Moving to project directory..."
-cd /var/www/html/chataffy/superadmin || exit 1
+cd /var/www/chataffy.com/superadmin || exit 1
 
 echo ""
 echo "Current Directory:"
@@ -37,8 +37,8 @@ git config --global --add safe.directory /var/www/html/chataffy/superadmin
 
 echo ""
 echo "[4/13] Fixing project ownership and permissions..."
-sudo chown -R ubuntu:ubuntu /var/www/html/chataffy/superadmin
-sudo chmod -R 755 /var/www/html/chataffy/superadmin
+sudo chown -R ubuntu:ubuntu /var/www/chataffy.com/superadmin
+sudo chmod -R 755 /var/www/chataffy.com/superadmin
 
 echo ""
 echo "[5/13] Checking Node & NPM versions..."
