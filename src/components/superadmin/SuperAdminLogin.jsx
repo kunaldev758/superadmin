@@ -37,7 +37,6 @@ const SuperAdminLogin = ({ onLogin }) => {
         body: JSON.stringify(formData),
       });
 
-      toast.success("Login Successfully");
 
       const data = await response.json();
 
@@ -45,6 +44,7 @@ const SuperAdminLogin = ({ onLogin }) => {
         localStorage.removeItem('superAdminToken');
         if (data.superAdmin) {
           localStorage.setItem('superAdminData', JSON.stringify(data.superAdmin));
+          toast.success("Login Successfully");
         }
         if (onLogin) {
           onLogin();
