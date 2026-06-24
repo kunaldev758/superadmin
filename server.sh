@@ -33,7 +33,7 @@ pwd
 
 echo ""
 echo "[3/13] Fixing git safe directory..."
-git config --global --add safe.directory /var/www/html/chataffy/superadmin
+git config --global --add safe.directory /var/www/chataffy.com/superadmin
 
 echo ""
 echo "[4/13] Fixing project ownership and permissions..."
