@@ -363,6 +363,7 @@ function ModelFormModal({
               />
             </div>
 
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Cache $/1M</label>
               <input
@@ -636,6 +637,7 @@ const GPTSettingsPanel = () => {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Input</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Output</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cache</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -664,11 +666,7 @@ const GPTSettingsPanel = () => {
                     <tr key={item._id || item.model} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="font-medium text-gray-900">{item.model}</div>
-                        {'cacheCost' in item && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Cache: {formatCost(item.cacheCost)}
-                          </div>
-                        )}
+                        
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-2">
@@ -702,6 +700,11 @@ const GPTSettingsPanel = () => {
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">
                         {formatCost(item.outputCost)}
                       </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                             
+{formatCost(item.cacheCost)}
+                      </td>
+                      
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <button
