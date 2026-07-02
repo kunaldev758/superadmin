@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Bot, Check, ChevronDown, Edit, Plus, Search, Trash2, X, AlertCircle, Info } from 'lucide-react';
+import { Bot, ChevronDown, Edit, Plus, Trash2, X, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { superadminFetch } from '@/lib/superadminFetch';
 
-const CATEGORY_OPTIONS = ['chat', 'embedding', 'intent', 'open-source'];
+const DEFAULT_CATEGORY_OPTIONS = ['chat', 'embedding', 'intent', 'open-source'];
 const STATUS_OPTIONS = ['active', 'inactive'];
 const AI_MODELS_BASE_ENDPOINT = '/ai-models';
+const AI_MODEL_CATEGORIES_ENDPOINT = '/ai-model-categories';
 const DELETE_CONFIRM_TEXT = 'model-delete';
 
 const getDefaultModelFormData = () => ({
@@ -23,6 +24,70 @@ const normalizeNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const getCategoryId = (category) => {
+  if (!category) return null;
+  if (typeof category === 'string') return category;
+  if (typeof category === 'object') return category._id;
+  return null;
+};
+
+const getCategoryName = (category) => {
+  if (!category) return '';
+  if (typeof category === 'string') return category;
+  if (typeof category === 'object') return category.category || category.name || '';
+  return '';
+};
+
+const toCategoryOption = (item) => {
+  if (typeof item === 'string') {
+    return { value: item, label: item };
+  }
+
+  if (!item || typeof item !== 'object') return null;
+
+  const value = item._id || item.category || item.name;
+  const label = item.category || item.name || item._id || '';
+  return value ? { value, label } : null;
+};
+
+const mergeCategoryOptions = (apiCategories = []) => {
+  const apiOptions = apiCategories.map(toCategoryOption).filter(Boolean);
+  if (apiOptions.length > 0) return apiOptions;
+
+  return DEFAULT_CATEGORY_OPTIONS.map((category) => ({
+    value: category,
+    label: category,
+  }));
+};
+
+const normalizeCategoryIds = (categories = []) =>
+  categories.map(getCategoryId).filter(Boolean);
+
+const buildCategoryMap = (categoryOptions = []) =>
+  categoryOptions.reduce((map, item) => {
+    const value = item?.value || item?._id;
+    const label = item?.label || getCategoryName(item) || value;
+    if (value) {
+      map[value] = label;
+    }
+    return map;
+  }, {});
+
+const buildCategoryAssignmentMap = (models = []) => {
+  const assignmentMap = {};
+
+  models.forEach((model) => {
+    (model.categories || []).forEach((category) => {
+      const value = getCategoryId(category) || getCategoryName(category);
+      if (value) {
+        assignmentMap[value] = model.model || 'Another model';
+      }
+    });
+  });
+
+  return assignmentMap;
+};
+
 const buildFormDataFromModel = (modelData) => {
   if (!modelData) return getDefaultModelFormData();
   return {
@@ -31,36 +96,99 @@ const buildFormDataFromModel = (modelData) => {
     inputCost: modelData.inputCost ?? '',
     outputCost: modelData.outputCost ?? '',
     cacheCost: modelData.cacheCost ?? '',
-    categories: Array.isArray(modelData.categories) ? modelData.categories : [],
+    categories: normalizeCategoryIds(modelData.categories),
   };
 };
 
-function CategoryMultiSelect({ value, onChange }) {
-  const [open, setOpen] = useState(false);
+function CategoryReassignConfirmModal({ pending, onConfirm, onCancel }) {
+  if (!pending) return null;
 
-  const toggleCategory = (category) => {
-    if (value.includes(category)) {
-      onChange(value.filter((item) => item !== category));
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] px-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full bg-sky-50 flex items-center justify-center mb-4">
+            <Info className="w-8 h-8 text-sky-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-800">Reassign category?</h3>
+          <p className="text-sm text-gray-600 mt-3">
+            <span className="font-medium capitalize">{pending.categoryLabel}</span> is currently assigned to{' '}
+            <span className="font-medium">{pending.assignedTo}</span>. Do you want to assign it to this model?
+          </p>
+        </div>
+
+        <div className="flex gap-3 mt-8">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            No
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Yes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CategoryMultiSelect({ value, options, categoryAssignmentMap = {}, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [pendingReassign, setPendingReassign] = useState(null);
+
+  const toggleCategory = (categoryValue, categoryLabel) => {
+    if (value.includes(categoryValue)) {
+      onChange(value.filter((item) => item !== categoryValue));
       return;
     }
-    onChange([...value, category]);
+
+    const assignedTo = categoryAssignmentMap[categoryValue];
+    if (assignedTo) {
+      setPendingReassign({
+        categoryValue,
+        categoryLabel,
+        assignedTo,
+      });
+      return;
+    }
+
+    onChange([...value, categoryValue]);
   };
 
+  const handleConfirmReassign = () => {
+    if (!pendingReassign) return;
+    onChange([...value, pendingReassign.categoryValue]);
+    setPendingReassign(null);
+  };
+
+  const selectedLabels = options
+    .filter((option) => value.includes(option.value))
+    .map((option) => option.label);
+
   const label =
-    value.length === 0
-      ? 'Select categories'
-      : value.length <= 2
-        ? value.join(', ')
-        : `${value.slice(0, 2).join(', ')} +${value.length - 2}`;
+    selectedLabels.length === 0
+      ? options.length === 0
+        ? 'No categories available'
+        : 'Select categories'
+      : selectedLabels.length <= 2
+        ? selectedLabels.join(', ')
+        : `${selectedLabels.slice(0, 2).join(', ')} +${selectedLabels.length - 2}`;
 
   return (
     <div className="relative">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white flex items-center justify-between text-left focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        disabled={options.length === 0}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white flex items-center justify-between text-left focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
       >
-        <span className={value.length === 0 ? 'text-gray-400' : 'text-gray-900'}>{label}</span>
+        <span className={selectedLabels.length === 0 ? 'text-gray-400' : 'text-gray-900'}>{label}</span>
         <ChevronDown className="w-4 h-4 text-gray-500" />
       </button>
 
@@ -69,20 +197,28 @@ function CategoryMultiSelect({ value, onChange }) {
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute z-20 mt-2 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
             <div className="p-2 space-y-1">
-              {CATEGORY_OPTIONS.map((category) => {
-                const checked = value.includes(category);
+              {options.map((option) => {
+                const checked = value.includes(option.value);
                 return (
                   <label
-                    key={category}
+                    key={option.value}
                     className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer"
                   >
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleCategory(category)}
+                      onChange={() => toggleCategory(option.value, option.label)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-gray-700 capitalize">{category}</span>
+                    <span className="text-sm text-gray-700 capitalize">
+                      {option.label}
+                      {categoryAssignmentMap[option.value] && !checked && (
+                        <span className="text-gray-400 normal-case">
+                          {' '}
+                          (assigned to {categoryAssignmentMap[option.value]})
+                        </span>
+                      )}
+                    </span>
                   </label>
                 );
               })}
@@ -90,11 +226,26 @@ function CategoryMultiSelect({ value, onChange }) {
           </div>
         </>
       )}
+
+      <CategoryReassignConfirmModal
+        pending={pendingReassign}
+        onConfirm={handleConfirmReassign}
+        onCancel={() => setPendingReassign(null)}
+      />
     </div>
   );
 }
 
-function ModelFormModal({ show, title, modelData, onClose, onSubmit }) {
+function ModelFormModal({
+  show,
+  title,
+  modelData,
+  categoryOptions,
+  categoryAssignmentMap = {},
+  onClose,
+  onSubmit,
+  submitting = false,
+}) {
   const [formData, setFormData] = useState(getDefaultModelFormData());
 
   useEffect(() => {
@@ -180,6 +331,8 @@ function ModelFormModal({ show, title, modelData, onClose, onSubmit }) {
               <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
               <CategoryMultiSelect
                 value={formData.categories}
+                options={categoryOptions}
+                categoryAssignmentMap={categoryAssignmentMap}
                 onChange={(categories) => updateFormData('categories', categories)}
               />
             </div>
@@ -225,7 +378,7 @@ function ModelFormModal({ show, title, modelData, onClose, onSubmit }) {
           </div>
 
           <p className="text-sm text-gray-500">
-            Costs are stored per 1M tokens and will be used anywhere the backend exposes these values.
+            Costs are stored per 1M tokens. Each category can only belong to one model at a time.
           </p>
         </div>
 
@@ -233,16 +386,18 @@ function ModelFormModal({ show, title, modelData, onClose, onSubmit }) {
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            disabled={submitting}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSubmit}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            disabled={submitting}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save
+            {submitting ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
@@ -255,6 +410,7 @@ const formatCost = (value) => `$${normalizeNumber(value).toFixed(4)}`;
 const GPTSettingsPanel = () => {
   const apiUrl = import.meta.env.VITE_API_URL;
   const [models, setModels] = useState([]);
+  const [categoryOptions, setCategoryOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -265,6 +421,8 @@ const GPTSettingsPanel = () => {
   const [selectedModel, setSelectedModel] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+
+  const categoryMap = useMemo(() => buildCategoryMap(categoryOptions), [categoryOptions]);
 
   const apiCall = async (endpoint, options = {}) => {
     const { headers: optHeaders = {}, ...rest } = options;
@@ -291,49 +449,100 @@ const GPTSettingsPanel = () => {
 
   const extractList = (payload) => {
     if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.categories)) return payload.categories;
     if (Array.isArray(payload?.models)) return payload.models;
     if (Array.isArray(payload)) return payload;
     return [];
   };
 
-  const loadModels = async () => {
+  const loadCategories = async () => {
     try {
-      setLoading(true);
+      const response = await apiCall(`${AI_MODEL_CATEGORIES_ENDPOINT}`);
+      setCategoryOptions(mergeCategoryOptions(extractList(response)));
+    } catch (error) {
+      console.error('Failed to fetch AI model categories:', error);
+      setCategoryOptions(mergeCategoryOptions([]));
+    }
+  };
+
+  const loadModels = async ({ showLoading = false } = {}) => {
+    try {
+      if (showLoading) setLoading(true);
       const response = await apiCall(`${AI_MODELS_BASE_ENDPOINT}`);
       setModels(extractList(response));
     } catch (error) {
       console.error('Failed to fetch GPT models:', error);
       toast.error('Failed to fetch GPT settings');
+      throw error;
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  const loadPanelData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([loadCategories(), loadModels()]);
+    } catch (error) {
+      console.error('Failed to fetch GPT settings data:', error);
+      toast.error(error.message || 'Failed to fetch GPT settings');
     } finally {
       setLoading(false);
     }
   };
 
+  const createCategoryAssignmentMap = useMemo(
+    () => buildCategoryAssignmentMap(models),
+    [models]
+  );
+
+  const editCategoryAssignmentMap = useMemo(() => {
+    const assignmentMap = buildCategoryAssignmentMap(models);
+    if (!selectedModel?._id) return assignmentMap;
+
+    (selectedModel.categories || []).forEach((category) => {
+      const value = getCategoryId(category) || getCategoryName(category);
+      if (value) delete assignmentMap[value];
+    });
+
+    return assignmentMap;
+  }, [models, selectedModel]);
+
   useEffect(() => {
-    loadModels();
+    loadPanelData();
   }, []);
+
+  const getCategoryLabel = (category) => {
+    const categoryId = getCategoryId(category);
+    if (!categoryId) return '';
+    if (typeof category === 'object') {
+      return getCategoryName(category) || categoryMap[categoryId] || categoryId;
+    }
+    return categoryMap[categoryId] || categoryId;
+  };
 
   const filteredModels = useMemo(() => {
     return models.filter((item) => {
       const modelName = item.model?.toLowerCase?.() || '';
-      const categories = Array.isArray(item.categories) ? item.categories.join(' ').toLowerCase() : '';
+      const categories = Array.isArray(item.categories)
+        ? item.categories.map((category) => getCategoryLabel(category)).join(' ').toLowerCase()
+        : '';
       const matchesSearch =
         modelName.includes(searchTerm.toLowerCase()) ||
         categories.includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [models, searchTerm, statusFilter]);
+  }, [models, searchTerm, statusFilter, categoryMap]);
 
   const handleCreateModel = async (payload) => {
     try {
       setSubmitting(true);
-      const response = await apiCall(`${AI_MODELS_BASE_ENDPOINT}/create`, {
+      await apiCall(`${AI_MODELS_BASE_ENDPOINT}/create`, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      const createdModel = response?.data || response?.model || payload;
-      setModels((prev) => [createdModel, ...prev]);
+      await loadModels();
       setShowCreateModal(false);
       toast.success('Model added successfully');
     } catch (error) {
@@ -348,17 +557,14 @@ const GPTSettingsPanel = () => {
     if (!selectedModel?._id) return;
     try {
       setSubmitting(true);
-      const response = await apiCall(`${AI_MODELS_BASE_ENDPOINT}/update`, {
+      await apiCall(`${AI_MODELS_BASE_ENDPOINT}/update`, {
         method: 'PUT',
         body: JSON.stringify({
           modelId: selectedModel._id,
           ...payload,
         }),
       });
-      const updatedModel = response?.data || response?.model || { ...selectedModel, ...payload };
-      setModels((prev) =>
-        prev.map((item) => (item._id === selectedModel._id ? updatedModel : item))
-      );
+      await loadModels();
       setShowEditModal(false);
       setSelectedModel(null);
       toast.success('Model updated successfully');
@@ -405,12 +611,10 @@ const GPTSettingsPanel = () => {
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        
-
+        <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">GPT Settings</h1>
-            <p className="text-gray-600 mt-2"> Manage available models, categories, status, and token pricing.</p>
+            <p className="text-gray-600 mt-2">Manage available models, categories, status, and token pricing.</p>
           </div>
 
           <button
@@ -421,33 +625,6 @@ const GPTSettingsPanel = () => {
             Add Model
           </button>
         </div>
-
-        {/* <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search model or category..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-        </div> */}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
@@ -495,14 +672,17 @@ const GPTSettingsPanel = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-2">
-                          {(item.categories || []).map((category) => (
-                            <span
-                              key={category}
-                              className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
-                            >
-                              {category}
-                            </span>
-                          ))}
+                          {(item.categories || []).map((category) => {
+                            const categoryId = getCategoryId(category);
+                            return (
+                              <span
+                                key={categoryId}
+                                className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
+                              >
+                                {getCategoryLabel(category)}
+                              </span>
+                            );
+                          })}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -555,6 +735,9 @@ const GPTSettingsPanel = () => {
       <ModelFormModal
         show={showCreateModal}
         title="Add Model"
+        categoryOptions={categoryOptions}
+        categoryAssignmentMap={createCategoryAssignmentMap}
+        submitting={submitting}
         onClose={() => !submitting && setShowCreateModal(false)}
         onSubmit={handleCreateModel}
       />
@@ -563,6 +746,9 @@ const GPTSettingsPanel = () => {
         show={showEditModal}
         title="Update Model"
         modelData={selectedModel}
+        categoryOptions={categoryOptions}
+        categoryAssignmentMap={editCategoryAssignmentMap}
+        submitting={submitting}
         onClose={() => {
           if (submitting) return;
           setShowEditModal(false);
