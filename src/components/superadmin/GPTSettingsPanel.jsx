@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Bot, ChevronDown, Edit, Plus, Trash2, X, AlertCircle, Info } from 'lucide-react';
+import { Bot, ChevronDown, Edit, Plus, Tag, Trash2, X, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { superadminFetch } from '@/lib/superadminFetch';
 
-const DEFAULT_CATEGORY_OPTIONS = ['chat', 'embedding', 'intent', 'open-source'];
 const STATUS_OPTIONS = ['active', 'inactive'];
 const AI_MODELS_BASE_ENDPOINT = '/ai-models';
 const AI_MODEL_CATEGORIES_ENDPOINT = '/ai-model-categories';
@@ -50,15 +49,8 @@ const toCategoryOption = (item) => {
   return value ? { value, label } : null;
 };
 
-const mergeCategoryOptions = (apiCategories = []) => {
-  const apiOptions = apiCategories.map(toCategoryOption).filter(Boolean);
-  if (apiOptions.length > 0) return apiOptions;
-
-  return DEFAULT_CATEGORY_OPTIONS.map((category) => ({
-    value: category,
-    label: category,
-  }));
-};
+const mergeCategoryOptions = (apiCategories = []) =>
+  apiCategories.map(toCategoryOption).filter(Boolean);
 
 const normalizeCategoryIds = (categories = []) =>
   categories.map(getCategoryId).filter(Boolean);
@@ -406,21 +398,203 @@ function ModelFormModal({
   );
 }
 
+function CategoryManageModal({
+  show,
+  categories,
+  onClose,
+  onCreate,
+  onUpdate,
+  onDelete,
+  submitting = false,
+}) {
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+
+  useEffect(() => {
+    if (!show) {
+      setNewCategoryName('');
+      setEditingCategory(null);
+      setEditCategoryName('');
+    }
+  }, [show]);
+
+  if (!show) return null;
+
+  const handleCreate = async () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) {
+      toast.error('Category name is required');
+      return;
+    }
+    try {
+      await onCreate(trimmed);
+      setNewCategoryName('');
+    } catch {
+      // parent shows toast
+    }
+  };
+
+  const handleStartEdit = (category) => {
+    setEditingCategory(category);
+    setEditCategoryName(getCategoryName(category));
+  };
+
+  const handleSaveEdit = async () => {
+    const trimmed = editCategoryName.trim();
+    if (!trimmed) {
+      toast.error('Category name is required');
+      return;
+    }
+    try {
+      await onUpdate(editingCategory._id, trimmed);
+      setEditingCategory(null);
+      setEditCategoryName('');
+    } catch {
+      // parent shows toast
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-xl w-full max-w-lg shadow-xl">
+        <div className="flex items-center justify-between p-6 border-b">
+          <h2 className="text-xl font-semibold text-gray-900">Manage Categories</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="New category name"
+              disabled={submitting}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+            />
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={submitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add
+            </button>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg divide-y divide-gray-200 max-h-72 overflow-y-auto">
+            {categories.length === 0 ? (
+              <p className="px-4 py-8 text-sm text-gray-500 text-center">No categories yet. Add one above.</p>
+            ) : (
+              categories.map((category) => {
+                const isEditing = editingCategory?._id === category._id;
+                return (
+                  <div key={category._id} className="flex items-center gap-2 px-4 py-3">
+                    {isEditing ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editCategoryName}
+                          onChange={(e) => setEditCategoryName(e.target.value)}
+                          disabled={submitting}
+                          className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveEdit}
+                          disabled={submitting}
+                          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCategory(null);
+                            setEditCategoryName('');
+                          }}
+                          disabled={submitting}
+                          className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1 text-sm font-medium text-gray-900 capitalize">
+                          {getCategoryName(category)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(category)}
+                          disabled={submitting}
+                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50"
+                          title="Edit category"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDelete(category._id)}
+                          disabled={submitting}
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                          title="Delete category"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 pt-0">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const formatCost = (value) => `$${normalizeNumber(value).toFixed(4)}`;
 
 const GPTSettingsPanel = () => {
   const apiUrl = import.meta.env.VITE_API_URL;
   const [models, setModels] = useState([]);
   const [categoryOptions, setCategoryOptions] = useState([]);
+  const [categoryList, setCategoryList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCannotDeleteModal, setShowCannotDeleteModal] = useState(false);
   const [selectedModel, setSelectedModel] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
 
   const categoryMap = useMemo(() => buildCategoryMap(categoryOptions), [categoryOptions]);
@@ -459,10 +633,13 @@ const GPTSettingsPanel = () => {
   const loadCategories = async () => {
     try {
       const response = await apiCall(`${AI_MODEL_CATEGORIES_ENDPOINT}`);
-      setCategoryOptions(mergeCategoryOptions(extractList(response)));
+      const categories = extractList(response);
+      setCategoryList(categories);
+      setCategoryOptions(mergeCategoryOptions(categories));
     } catch (error) {
       console.error('Failed to fetch AI model categories:', error);
-      setCategoryOptions(mergeCategoryOptions([]));
+      setCategoryList([]);
+      setCategoryOptions([]);
     }
   };
 
@@ -609,6 +786,61 @@ const GPTSettingsPanel = () => {
     }
   };
 
+  const handleCreateCategory = async (categoryName) => {
+    try {
+      setCategorySubmitting(true);
+      await apiCall(`${AI_MODEL_CATEGORIES_ENDPOINT}/create`, {
+        method: 'POST',
+        body: JSON.stringify({ category: categoryName }),
+      });
+      await loadCategories();
+      toast.success('Category added successfully');
+    } catch (error) {
+      console.error('Failed to create category:', error);
+      toast.error(error.message || 'Failed to add category');
+      throw error;
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleUpdateCategory = async (categoryId, categoryName) => {
+    try {
+      setCategorySubmitting(true);
+      await apiCall(`${AI_MODEL_CATEGORIES_ENDPOINT}/update`, {
+        method: 'PUT',
+        body: JSON.stringify({ categoryId, category: categoryName }),
+      });
+      await Promise.all([loadCategories(), loadModels()]);
+      toast.success('Category updated successfully');
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      toast.error(error.message || 'Failed to update category');
+      throw error;
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId) => {
+    const categoryName = getCategoryName(categoryList.find((item) => item._id === categoryId));
+    if (!window.confirm(`Delete category "${categoryName}"? It will be removed from all models.`)) {
+      return;
+    }
+
+    try {
+      setCategorySubmitting(true);
+      await apiCall(`${AI_MODEL_CATEGORIES_ENDPOINT}/delete/${categoryId}`, { method: 'DELETE' });
+      await Promise.all([loadCategories(), loadModels()]);
+      toast.success('Category deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      toast.error(error.message || 'Failed to delete category');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -618,13 +850,22 @@ const GPTSettingsPanel = () => {
             <p className="text-gray-600 mt-2">Manage available models, categories, status, and token pricing.</p>
           </div>
 
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 w-fit"
-          >
-            <Plus className="w-4 h-4" />
-            Add Model
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowCategoryModal(true)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 w-fit"
+            >
+              <Tag className="w-4 h-4" />
+              Category
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 w-fit"
+            >
+              <Plus className="w-4 h-4" />
+              Add Model
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -734,6 +975,16 @@ const GPTSettingsPanel = () => {
           </div>
         </div>
       </div>
+
+      <CategoryManageModal
+        show={showCategoryModal}
+        categories={categoryList}
+        submitting={categorySubmitting}
+        onClose={() => !categorySubmitting && setShowCategoryModal(false)}
+        onCreate={handleCreateCategory}
+        onUpdate={handleUpdateCategory}
+        onDelete={handleDeleteCategory}
+      />
 
       <ModelFormModal
         show={showCreateModal}
