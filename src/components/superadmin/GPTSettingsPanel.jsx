@@ -263,11 +263,11 @@ function ModelFormModal({
     }
 
     if (
-      normalizeNumber(formData.inputCost) <= 0 ||
-      normalizeNumber(formData.outputCost) <= 0 ||
-      normalizeNumber(formData.cacheCost) <= 0
+      normalizeNumber(formData.inputCost) < 0 ||
+      normalizeNumber(formData.outputCost) < 0 ||
+      normalizeNumber(formData.cacheCost) < 0
     ) {
-      toast.error('Input, output, and cache cost must be greater than 0');
+      toast.error('Input, output, and cache cost must be positivge ');
       return;
     }
 
@@ -398,6 +398,46 @@ function ModelFormModal({
   );
 }
 
+function CategoryDeleteConfirmModal({ category, onConfirm, onCancel, submitting = false }) {
+  if (!category) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] px-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mb-4">
+            <AlertCircle className="w-8 h-8 text-orange-400" />
+          </div>
+          <h3 className="text-2xl font-semibold text-gray-800">Delete this category?</h3>
+          <p className="text-sm text-gray-500 mt-3">
+            It will be removed from all models that use it.
+          </p>
+          <p className="text-sm font-semibold text-gray-700 mt-2 capitalize">{getCategoryName(category)}</p>
+        </div>
+
+        <div className="flex gap-3 mt-8">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={submitting}
+            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CategoryManageModal({
   show,
   categories,
@@ -410,12 +450,14 @@ function CategoryManageModal({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
   const [editCategoryName, setEditCategoryName] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   useEffect(() => {
     if (!show) {
       setNewCategoryName('');
       setEditingCategory(null);
       setEditCategoryName('');
+      setPendingDelete(null);
     }
   }, [show]);
 
@@ -450,6 +492,16 @@ function CategoryManageModal({
       await onUpdate(editingCategory._id, trimmed);
       setEditingCategory(null);
       setEditCategoryName('');
+    } catch {
+      // parent shows toast
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      await onDelete(pendingDelete._id);
+      setPendingDelete(null);
     } catch {
       // parent shows toast
     }
@@ -546,7 +598,7 @@ function CategoryManageModal({
                         </button>
                         <button
                           type="button"
-                          onClick={() => onDelete(category._id)}
+                          onClick={() => setPendingDelete(category)}
                           disabled={submitting}
                           className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
                           title="Delete category"
@@ -573,6 +625,13 @@ function CategoryManageModal({
           </button>
         </div>
       </div>
+
+      <CategoryDeleteConfirmModal
+        category={pendingDelete}
+        submitting={submitting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => !submitting && setPendingDelete(null)}
+      />
     </div>
   );
 }
@@ -823,11 +882,6 @@ const GPTSettingsPanel = () => {
   };
 
   const handleDeleteCategory = async (categoryId) => {
-    const categoryName = getCategoryName(categoryList.find((item) => item._id === categoryId));
-    if (!window.confirm(`Delete category "${categoryName}"? It will be removed from all models.`)) {
-      return;
-    }
-
     try {
       setCategorySubmitting(true);
       await apiCall(`${AI_MODEL_CATEGORIES_ENDPOINT}/delete/${categoryId}`, { method: 'DELETE' });
@@ -836,6 +890,7 @@ const GPTSettingsPanel = () => {
     } catch (error) {
       console.error('Failed to delete category:', error);
       toast.error(error.message || 'Failed to delete category');
+      throw error;
     } finally {
       setCategorySubmitting(false);
     }
