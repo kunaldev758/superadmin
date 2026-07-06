@@ -263,11 +263,49 @@ const SuperAdminDashboard = ({ onNavigate, superAdminUser, onLogout }) => {
                   {formatCurrency(estimateGpt41CostUsd(dashboardData?.openAIUsage?.totalTokens))}
                 </span>
               </div>
-              {/* <Separator />
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Total Requests</span>
-                <span className="font-semibold text-blue-600">{formatCurrency(dashboardData?.openAIUsage?.totalRequests || 0)}</span>
-              </div> */}
+                <span className="text-muted-foreground">Total Input Tokens </span>
+                <span className="font-semibold text-blue-600">
+                {formatNumber(dashboardData?.openAIUsage?.totalInputTokens || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Output Tokens </span>
+                <span className="font-semibold text-blue-600">
+                {formatNumber(dashboardData?.openAIUsage?.totalOutputTokens || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Cache Tokens </span>
+                <span className="font-semibold text-blue-600">
+                {formatNumber(dashboardData?.openAIUsage?.totalCacheTokens || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Input Cost </span>
+                <span className="font-semibold text-blue-600">
+                {formatNumber(dashboardData?.openAIUsage?.totalInputCost || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Output Cost </span>
+                <span className="font-semibold text-blue-600">
+                {formatNumber(dashboardData?.openAIUsage?.totalOutputCost || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Cache Cost </span>
+                <span className="font-semibold text-blue-600">
+                {formatNumber(dashboardData?.openAIUsage?.totalCacheCost || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Requests </span>
+                <span className="font-semibold text-blue-600">
+                {formatNumber(dashboardData?.openAIUsage?.totalRequests || 0)}
+                </span>
+              </div>
+
             </CardContent>
           </Card>
 
@@ -322,6 +360,64 @@ const SuperAdminDashboard = ({ onNavigate, superAdminUser, onLogout }) => {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* OpenAI Usage by Type */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[
+            { key: 'chat', label: 'Chat', icon: MessageCircle, color: 'text-blue-500' },
+            { key: 'embedding', label: 'Embedding', icon: Database, color: 'text-purple-500' },
+            { key: 'intent', label: 'Intent', icon: Activity, color: 'text-green-500' },
+            { key: 'open-source', label: 'Open Source', icon: Bot, color: 'text-teal-500' },
+          ].map(({ key, label, icon: Icon, color }) => {
+            const usage = dashboardData?.openAIUsage?.byType?.[key] || {};
+            return (
+              <Card key={key} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-base">
+                    <Icon className={`h-5 w-5 mr-2 ${color}`} />
+                    {label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground text-sm">Total Tokens</span>
+                    <span className="font-semibold">{formatNumber(usage.totalTokens || 0)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground text-sm">Input Tokens</span>
+                    <span className="font-semibold">{formatNumber(usage.inputTokens || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground text-sm">Output Tokens</span>
+                    <span className="font-semibold">{formatNumber(usage.outputTokens || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground text-sm">Cache Tokens</span>
+                    <span className="font-semibold">{formatNumber(usage.cacheTokens || 0)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground text-sm">Input Cost</span>
+                    <span className="font-semibold">{formatCurrency(usage.inputCost || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground text-sm">Output Cost</span>
+                    <span className="font-semibold">{formatCurrency(usage.outputCost || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground text-sm">Cache Cost</span>
+                    <span className="font-semibold">{formatCurrency(usage.cacheCost || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground text-sm">Total Cost</span>
+                    <span className="font-semibold">{formatCurrency(usage.totalCost || 0)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Chat Statistics */}
