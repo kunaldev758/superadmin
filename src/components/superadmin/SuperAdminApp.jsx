@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Home, Users, UserCog, MessageSquare, LogOut, Menu, X, Bot } from 'lucide-react';
+import { Shield, Home, Users, UserCog, MessageSquare, LogOut, Menu, X, Bot, Globe } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -9,6 +9,7 @@ import SuperAdminDashboard from './SuperAdminDashboard';
 import ClientManagement from './ClientManagement';
 import PlanManagementPanel from './PlanManagementPanel';
 import GPTSettingsPanel from './GPTSettingsPanel';
+import ProxySettingsPanel from './ProxySettingsPanel';
 import { superadminFetch } from '@/lib/superadminFetch';
 import { toast } from 'react-toastify';
 
@@ -91,6 +92,7 @@ const SuperAdminApp = () => {
     { id: 'clients', name: 'Clients', icon: Users },
     { id: 'plans', name: 'Plan Management', icon: Shield },
     { id: 'gpt-settings', name: 'GPT Settings', icon: Bot },
+    { id: 'ip-proxy-settings', name: 'IP Proxy Setting', icon: Globe },
     // { id: 'agents', name: 'Agents', icon: UserCog },
     // { id: 'conversations', name: 'Conversations', icon: MessageSquare },
   ];
@@ -202,6 +204,9 @@ const SuperAdminApp = () => {
         )}
         {currentView === 'gpt-settings' && (
           <GPTSettingsPanel />
+        )}
+        {currentView === 'ip-proxy-settings' && (
+          <ProxySettingsPanel />
         )}
         {currentView === 'agents' && (
           <div className="p-8">
