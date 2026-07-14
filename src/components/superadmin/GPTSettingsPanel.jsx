@@ -12,16 +12,24 @@ import AiModelCategoryPanel, {
 } from './AiModelCategoryPanel';
 
 const STATUS_OPTIONS = ['active', 'inactive'];
+const PROVIDER_OPTIONS = ['openai', 'ollama', 'groq'];
 const AI_MODELS_BASE_ENDPOINT = '/ai-models';
 const DELETE_CONFIRM_TEXT = 'model-delete';
 
 const getDefaultModelFormData = () => ({
   model: '',
   status: 'inactive',
+  provider: 'openai',
   inputCost: '',
   outputCost: '',
   cacheCost: '',
+  embeddingDimension: '',
   categories: [],
+  providerConfig: {
+    baseUrl: '',
+    apiKey: '',
+    timeoutMs: 30000,
+  },
 });
 
 const normalizeNumber = (value) => {
@@ -35,10 +43,17 @@ const buildFormDataFromModel = (modelData) => {
   return {
     model: modelData.model ?? '',
     status: modelData.status ?? 'inactive',
+    provider: modelData.provider ?? 'openai',
     inputCost: modelData.inputCost ?? '',
     outputCost: modelData.outputCost ?? '',
     cacheCost: modelData.cacheCost ?? '',
+    embeddingDimension: modelData.embeddingDimension ?? '',
     categories: normalizeCategoryIds(modelData.categories),
+    providerConfig: {
+      baseUrl: modelData.providerConfig?.baseUrl ?? '',
+      apiKey: modelData.providerConfig?.apiKey ?? '',
+      timeoutMs: modelData.providerConfig?.timeoutMs ?? 30000,
+    },
   };
 };
 
@@ -65,6 +80,28 @@ function ModelFormModal({
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  const updateProviderConfig = (key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      providerConfig: { ...prev.providerConfig, [key]: value },
+    }));
+  };
+
+  const selectedCategoryNames = (formData.categories || [])
+    .map((id) => {
+      const opt = categoryOptions.find(
+        (c) => (c.value || getCategoryId(c)) === id
+      );
+      return (opt?.label || getCategoryName(opt) || '').toLowerCase();
+    });
+
+  const showEmbeddingDimension = selectedCategoryNames.some((n) =>
+    n.includes('embedding')
+  );
+  const showOllamaFields = formData.provider === 'ollama';
+  const showApiKeyField =
+    formData.provider === 'groq' || formData.provider === 'openai';
+
   const handleSubmit = () => {
     if (!formData.model.trim()) {
       toast.error('Model name is required');
@@ -81,24 +118,49 @@ function ModelFormModal({
       normalizeNumber(formData.outputCost) < 0 ||
       normalizeNumber(formData.cacheCost) < 0
     ) {
-      toast.error('Input, output, and cache cost must be positivge ');
+      toast.error('Input, output, and cache cost must not be negative');
       return;
+    }
+
+    const timeoutMs = Number(formData.providerConfig.timeoutMs);
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      toast.error('Timeout must be a positive number (ms)');
+      return;
+    }
+
+    let embeddingDimension = null;
+    if (
+      formData.embeddingDimension !== '' &&
+      formData.embeddingDimension != null
+    ) {
+      embeddingDimension = Number(formData.embeddingDimension);
+      if (!Number.isFinite(embeddingDimension) || embeddingDimension <= 0) {
+        toast.error('Embedding dimension must be a positive number');
+        return;
+      }
     }
 
     onSubmit({
       model: formData.model.trim(),
       status: formData.status,
+      provider: formData.provider,
       inputCost: normalizeNumber(formData.inputCost),
       outputCost: normalizeNumber(formData.outputCost),
       cacheCost: normalizeNumber(formData.cacheCost),
       categories: formData.categories,
+      embeddingDimension,
+      providerConfig: {
+        baseUrl: String(formData.providerConfig.baseUrl || '').trim(),
+        apiKey: String(formData.providerConfig.apiKey || '').trim(),
+        timeoutMs,
+      },
     });
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl">
-        <div className="flex items-center justify-between p-6 border-b">
+      <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
           <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X className="w-5 h-5" />
@@ -113,7 +175,7 @@ function ModelFormModal({
                 type="text"
                 value={formData.model}
                 onChange={(e) => updateFormData('model', e.target.value)}
-                placeholder="e.g. gpt-5.4-nano"
+                placeholder="e.g. gpt-4.1-mini or llama3.1:8b"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -134,6 +196,21 @@ function ModelFormModal({
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+              <select
+                value={formData.provider}
+                onChange={(e) => updateFormData('provider', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                {PROVIDER_OPTIONS.map((provider) => (
+                  <option key={provider} value={provider}>
+                    {provider}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
               <CategoryMultiSelect
                 value={formData.categories}
@@ -169,7 +246,7 @@ function ModelFormModal({
               />
             </div>
 
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Cache $/1M</label>
               <input
                 type="number"
@@ -181,10 +258,80 @@ function ModelFormModal({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Timeout (ms)</label>
+              <input
+                type="number"
+                min="1"
+                step="100"
+                value={formData.providerConfig.timeoutMs}
+                onChange={(e) => updateProviderConfig('timeoutMs', e.target.value)}
+                placeholder="30000"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {showEmbeddingDimension && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Embedding dimension
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={formData.embeddingDimension}
+                  onChange={(e) => updateFormData('embeddingDimension', e.target.value)}
+                  placeholder="1536"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            )}
+
+            {showOllamaFields && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Base URL (optional override)
+                </label>
+                <input
+                  type="text"
+                  value={formData.providerConfig.baseUrl}
+                  onChange={(e) => updateProviderConfig('baseUrl', e.target.value)}
+                  placeholder="Leave empty to use OLLAMA_BASE_URL from server env"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Local vs production URLs should live in each server&apos;s{' '}
+                  <code className="bg-gray-100 px-1 rounded">OLLAMA_BASE_URL</code>. Use this
+                  only as a fallback override.
+                </p>
+              </div>
+            )}
+
+            {showApiKeyField && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  API Key (optional override)
+                </label>
+                <input
+                  type="password"
+                  value={formData.providerConfig.apiKey}
+                  onChange={(e) => updateProviderConfig('apiKey', e.target.value)}
+                  placeholder={
+                    formData.provider === 'groq'
+                      ? 'Leave empty to use GROQ_API_KEY from server env'
+                      : 'Leave empty to use OPENAI_API_KEY from server env'
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            )}
           </div>
 
           <p className="text-sm text-gray-500">
             Costs are stored per 1M tokens. Each category can only belong to one model at a time.
+            Env vars win for infra (local/prod base URL and API keys).
           </p>
         </div>
 
@@ -408,7 +555,9 @@ const GPTSettingsPanel = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">GPT Settings</h1>
-            <p className="text-gray-600 mt-2">Manage available models, categories, status, and token pricing.</p>
+            <p className="text-gray-600 mt-2">
+              Manage available models, categories, status, provider config, and token pricing.
+            </p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -433,6 +582,7 @@ const GPTSettingsPanel = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Model</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Provider</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Input</th>
@@ -446,14 +596,14 @@ const GPTSettingsPanel = () => {
                 {loading ? (
                   [...Array(5)].map((_, index) => (
                     <tr key={index}>
-                      <td className="px-6 py-4" colSpan="6">
+                      <td className="px-6 py-4" colSpan="8">
                         <div className="h-8 w-full animate-pulse rounded bg-gray-100" />
                       </td>
                     </tr>
                   ))
                 ) : filteredModels.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center">
+                    <td colSpan="8" className="px-6 py-12 text-center">
                       <Bot className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                       <h3 className="text-lg font-medium text-gray-900">No models found</h3>
                       <p className="text-sm text-gray-500 mt-1">
@@ -466,6 +616,11 @@ const GPTSettingsPanel = () => {
                     <tr key={item._id || item.model} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="font-medium text-gray-900">{item.model}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+                          {item.provider || 'openai'}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-2">
