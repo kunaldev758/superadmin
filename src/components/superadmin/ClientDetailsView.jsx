@@ -40,11 +40,21 @@ const EMPTY_USAGE = {
   totalRequests: 0,
 };
 
-const formatCurrency = (amount) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(Number(amount) || 0);
+const formatCurrency = (amount) => {
+  const n = Number(amount) || 0;
+  if (n === 0) return '$0.00';
+  // Normal currency for ≥ 1¢; keep more decimals for tiny OpenAI costs
+  if (Math.abs(n) >= 0.01) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  }
+  const trimmed = n.toFixed(8).replace(/\.?0+$/, '');
+  return `$${trimmed}`;
+};
 
 const formatNumber = (num) => {
   const n = Number(num) || 0;
@@ -57,14 +67,14 @@ const formatNumber = (num) => {
 const OpenAIUsageMetricsBox = ({ title, usage, className = '', showEmbedding = false }) => {
   const u = usage || EMPTY_USAGE;
   return (
-    <div className={`rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2 ${className}`}>
+    <div className={`rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2.5 ${className}`}>
       {title ? (
-        <div className="text-sm font-semibold flex items-center gap-1.5 text-slate-900">
-          <Zap className="w-3.5 h-3.5 text-blue-600" />
+        <div className="text-base font-semibold flex items-center gap-1.5 text-slate-900">
+          <Zap className="w-4 h-4 text-blue-600" />
           {title}
         </div>
       ) : null}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5 text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
         <div className="flex justify-between gap-2">
           <span className="text-slate-500">Input tokens</span>
           <span className="font-semibold tabular-nums text-slate-900">{formatNumber(u.inputTokens)}</span>
@@ -91,7 +101,7 @@ const OpenAIUsageMetricsBox = ({ title, usage, className = '', showEmbedding = f
         </div>
         {showEmbedding && (
           <>
-            <div className="flex justify-between gap-2 col-span-2 sm:col-span-3 border-t border-slate-200 pt-1.5 mt-0.5">
+            <div className="flex justify-between gap-2 col-span-2 sm:col-span-3 border-t border-slate-200 pt-2 mt-0.5">
               <span className="text-slate-500 font-medium">Embedding input tokens</span>
               <span className="font-semibold tabular-nums text-slate-900">
                 {formatNumber(u.embeddingInputTokens || 0)}
@@ -105,7 +115,7 @@ const OpenAIUsageMetricsBox = ({ title, usage, className = '', showEmbedding = f
             </div>
           </>
         )}
-        <div className="flex justify-between gap-2 col-span-2 sm:col-span-3 border-t border-slate-200 pt-1.5 mt-0.5">
+        <div className="flex justify-between gap-2 col-span-2 sm:col-span-3 border-t border-slate-200 pt-2 mt-0.5">
           <span className="text-slate-600 font-medium">Total (chat)</span>
           <span className="font-semibold tabular-nums text-slate-900">
             {formatNumber(u.totalTokens)} tok · {formatCurrency(u.totalCost)}
@@ -1101,21 +1111,21 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                     <span>Created</span>
                                     <span>{formatDate(bot.createdAt)}</span>
                                   </div>
-                                  <div className="rounded-md border bg-blue-50/60 border-blue-100 px-2.5 py-2 mt-2 space-y-1">
-                                    <div className="flex justify-between text-xs">
+                                  <div className="rounded-md border bg-blue-50/60 border-blue-100 px-3 py-2.5 mt-2 space-y-1.5">
+                                    <div className="flex justify-between text-sm">
                                       <span className="text-blue-800">Total tokens</span>
                                       <span className="font-semibold text-blue-900 tabular-nums">{formatNumber(usage.totalTokens)}</span>
                                     </div>
-                                    <div className="flex justify-between text-xs">
+                                    <div className="flex justify-between text-sm">
                                       <span className="text-blue-800">Total cost</span>
                                       <span className="font-semibold text-blue-900 tabular-nums">{formatCurrency(usage.totalCost)}</span>
                                     </div>
-                                    <div className="border-t border-blue-100 pt-1 mt-1 space-y-1">
-                                      <div className="flex justify-between text-xs">
+                                    <div className="border-t border-blue-100 pt-1.5 mt-1.5 space-y-1.5">
+                                      <div className="flex justify-between text-sm">
                                         <span className="text-blue-800">Website training (embedding) tokens</span>
                                         <span className="font-semibold text-blue-900 tabular-nums">{formatNumber(embedding.totalTokens)}</span>
                                       </div>
-                                      <div className="flex justify-between text-xs">
+                                      <div className="flex justify-between text-sm">
                                         <span className="text-blue-800">Website training (embedding) cost</span>
                                         <span className="font-semibold text-blue-900 tabular-nums">{formatCurrency(embedding.totalCost)}</span>
                                       </div>
@@ -1186,7 +1196,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                     />
 
                     <div>
-                      <h4 className="text-sm font-semibold mb-2 text-slate-900">
+                      <h4 className="text-base font-semibold mb-2.5 text-slate-900">
                         Conversations ({botConversations.length})
                       </h4>
                       {botConversations.length === 0 ? (
@@ -1194,27 +1204,27 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                           No conversation usage yet for this chatbot.
                         </p>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-2.5">
                           {botConversations.map((conv) => {
                             const isOpen =
                               selectedConversation?.conversationId === conv.conversationId;
                             return (
                               <div
                                 key={conv.conversationId}
-                                className="rounded-lg border border-slate-200 bg-white p-3 space-y-2"
+                                className="rounded-lg border border-slate-200 bg-white p-3.5 space-y-2"
                               >
                                 <div className="flex items-center gap-2">
-                                  <div className="min-w-0 flex-1 space-y-0.5">
-                                    <div className="font-medium text-sm truncate text-slate-900">
+                                  <div className="min-w-0 flex-1 space-y-1">
+                                    <div className="font-medium text-base truncate text-slate-900">
                                       {conv.visitorName || 'Unknown visitor'}
                                     </div>
                                     <div
-                                      className="font-mono text-[11px] text-slate-500 truncate"
+                                      className="font-mono text-xs text-slate-500 truncate"
                                       title={conv.conversationId}
                                     >
                                       {conv.conversationId}
                                     </div>
-                                    <div className="text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
+                                    <div className="text-sm text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
                                       <span>{formatNumber(conv.totalTokens)} chat tok</span>
                                       <span>{formatCurrency(conv.totalCost)}</span>
                                       <span>
@@ -1229,7 +1239,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                     type="button"
                                     size="icon"
                                     variant={isOpen ? 'default' : 'outline'}
-                                    className="h-8 w-8 shrink-0"
+                                    className="h-9 w-9 shrink-0"
                                     title="Show token & cost breakdown"
                                     onClick={() =>
                                       setSelectedConversation(isOpen ? null : conv)

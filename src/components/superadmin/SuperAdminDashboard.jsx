@@ -84,10 +84,19 @@ const SuperAdminDashboard = ({ onNavigate, superAdminUser, onLogout }) => {
   const COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
+    const n = Number(amount) || 0;
+    if (n === 0) return '$0.00';
+    // Normal currency for ≥ 1¢; keep more decimals for tiny OpenAI costs
+    if (Math.abs(n) >= 0.01) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(n);
+    }
+    const trimmed = n.toFixed(8).replace(/\.?0+$/, '');
+    return `$${trimmed}`;
   };
 
   const formatNumber = (num) => {
@@ -264,6 +273,12 @@ const SuperAdminDashboard = ({ onNavigate, superAdminUser, onLogout }) => {
                 </span>
               </div>
               <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Total Cost </span>
+                <span className="font-semibold text-blue-600">
+                  {formatCurrency(dashboardData?.openAIUsage?.totalCost || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Total Input Tokens </span>
                 <span className="font-semibold text-blue-600">
                 {formatNumber(dashboardData?.openAIUsage?.totalInputTokens || 0)}
@@ -284,19 +299,19 @@ const SuperAdminDashboard = ({ onNavigate, superAdminUser, onLogout }) => {
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Total Input Cost </span>
                 <span className="font-semibold text-blue-600">
-                {formatNumber(dashboardData?.openAIUsage?.totalInputCost || 0)}
+                {formatCurrency(dashboardData?.openAIUsage?.totalInputCost || 0)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Total Output Cost </span>
                 <span className="font-semibold text-blue-600">
-                {formatNumber(dashboardData?.openAIUsage?.totalOutputCost || 0)}
+                {formatCurrency(dashboardData?.openAIUsage?.totalOutputCost || 0)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Total Cache Cost </span>
                 <span className="font-semibold text-blue-600">
-                {formatNumber(dashboardData?.openAIUsage?.totalCacheCost || 0)}
+                {formatCurrency(dashboardData?.openAIUsage?.totalCacheCost || 0)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
