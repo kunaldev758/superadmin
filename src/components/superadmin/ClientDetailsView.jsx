@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ArrowLeft, 
   UserCog, 
@@ -16,6 +17,7 @@ import {
   Pencil,
   Check,
   X,
+  Zap,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,10 +28,99 @@ import { superadminFetch } from '@/lib/superadminFetch';
 /** Plan limits and custom limits maxStorage are stored in bytes; the form uses MB like PlanManagementPanel. */
 const BYTES_PER_MB = 1024 * 1024;
 
+const EMPTY_USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheTokens: 0,
+  totalTokens: 0,
+  inputCost: 0,
+  outputCost: 0,
+  cacheCost: 0,
+  totalCost: 0,
+  totalRequests: 0,
+};
+
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(Number(amount) || 0);
+
+const formatNumber = (num) => {
+  const n = Number(num) || 0;
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toLocaleString();
+};
+
+/** Compact metrics box: input/output/cache tokens + costs (+ optional embedding) */
+const OpenAIUsageMetricsBox = ({ title, usage, className = '', showEmbedding = false }) => {
+  const u = usage || EMPTY_USAGE;
+  return (
+    <div className={`rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2 ${className}`}>
+      {title ? (
+        <div className="text-sm font-semibold flex items-center gap-1.5 text-slate-900">
+          <Zap className="w-3.5 h-3.5 text-blue-600" />
+          {title}
+        </div>
+      ) : null}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5 text-xs">
+        <div className="flex justify-between gap-2">
+          <span className="text-slate-500">Input tokens</span>
+          <span className="font-semibold tabular-nums text-slate-900">{formatNumber(u.inputTokens)}</span>
+        </div>
+        <div className="flex justify-between gap-2">
+          <span className="text-slate-500">Output tokens</span>
+          <span className="font-semibold tabular-nums text-slate-900">{formatNumber(u.outputTokens)}</span>
+        </div>
+        <div className="flex justify-between gap-2">
+          <span className="text-slate-500">Cache tokens</span>
+          <span className="font-semibold tabular-nums text-slate-900">{formatNumber(u.cacheTokens)}</span>
+        </div>
+        <div className="flex justify-between gap-2">
+          <span className="text-slate-500">Input cost</span>
+          <span className="font-semibold text-blue-700 tabular-nums">{formatCurrency(u.inputCost)}</span>
+        </div>
+        <div className="flex justify-between gap-2">
+          <span className="text-slate-500">Output cost</span>
+          <span className="font-semibold text-blue-700 tabular-nums">{formatCurrency(u.outputCost)}</span>
+        </div>
+        <div className="flex justify-between gap-2">
+          <span className="text-slate-500">Cache cost</span>
+          <span className="font-semibold text-blue-700 tabular-nums">{formatCurrency(u.cacheCost)}</span>
+        </div>
+        {showEmbedding && (
+          <>
+            <div className="flex justify-between gap-2 col-span-2 sm:col-span-3 border-t border-slate-200 pt-1.5 mt-0.5">
+              <span className="text-slate-500 font-medium">Embedding input tokens</span>
+              <span className="font-semibold tabular-nums text-slate-900">
+                {formatNumber(u.embeddingInputTokens || 0)}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2 col-span-2 sm:col-span-3">
+              <span className="text-slate-500 font-medium">Embedding input cost</span>
+              <span className="font-semibold text-blue-700 tabular-nums">
+                {formatCurrency(u.embeddingInputCost || 0)}
+              </span>
+            </div>
+          </>
+        )}
+        <div className="flex justify-between gap-2 col-span-2 sm:col-span-3 border-t border-slate-200 pt-1.5 mt-0.5">
+          <span className="text-slate-600 font-medium">Total (chat)</span>
+          <span className="font-semibold tabular-nums text-slate-900">
+            {formatNumber(u.totalTokens)} tok · {formatCurrency(u.totalCost)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ClientDetailsView = ({ clientId, onBack }) => {
   const [clientData, setClientData] = useState(null);
   const [aiAgents, setAiAgents] = useState([]);
   const [humanAgents, setHumanAgents] = useState([]);
+  const [openAIUsageTotal, setOpenAIUsageTotal] = useState(EMPTY_USAGE);
   const [loading, setLoading] = useState(true);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,6 +139,15 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   /** Quick-edit limits from Overview Usage Details (PUT /clients/:id/custom-limits). */
   const [usageEditing, setUsageEditing] = useState(null);
   const [usageEditDraft, setUsageEditDraft] = useState('');
+
+  /** AI chatbot conversations usage panel */
+  const [selectedBot, setSelectedBot] = useState(null);
+  const [botUsageLoading, setBotUsageLoading] = useState(false);
+  const [botUsageError, setBotUsageError] = useState('');
+  const [botConversations, setBotConversations] = useState([]);
+  const [conversationsTotals, setConversationsTotals] = useState(EMPTY_USAGE);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+
   const apiUrl = import.meta.env.VITE_API_URL;
 
   const fetchClientDetails = useCallback(async () => {
@@ -84,6 +184,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
         const data = await response.json();
         setAiAgents(data.data?.aiAgents || []);
         setHumanAgents(data.data?.humanAgents || []);
+        setOpenAIUsageTotal(data.data?.openAIUsageTotal || EMPTY_USAGE);
       } else {
         console.error('Failed to fetch client agents');
       }
@@ -93,6 +194,45 @@ const ClientDetailsView = ({ clientId, onBack }) => {
       setAgentsLoading(false);
     }
   }, [clientId, apiUrl]);
+
+  const closeBotUsagePanel = useCallback(() => {
+    setSelectedBot(null);
+    setBotConversations([]);
+    setConversationsTotals(EMPTY_USAGE);
+    setSelectedConversation(null);
+    setBotUsageError('');
+  }, []);
+
+  const openBotUsagePanel = useCallback(
+    async (bot) => {
+      if (!clientId || !bot?._id) return;
+      setSelectedBot(bot);
+      setSelectedConversation(null);
+      setBotUsageError('');
+      setBotUsageLoading(true);
+      setBotConversations([]);
+      setConversationsTotals(EMPTY_USAGE);
+
+      try {
+        const response = await superadminFetch(
+          `${apiUrl}/clients/${clientId}/agents/${bot._id}/conversations-usage`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setBotConversations(data.data?.conversations || []);
+          setConversationsTotals(data.data?.conversationsTotals || EMPTY_USAGE);
+        } else {
+          setBotUsageError('Failed to load conversation usage');
+        }
+      } catch (err) {
+        console.error(err);
+        setBotUsageError('Network error loading conversation usage');
+      } finally {
+        setBotUsageLoading(false);
+      }
+    },
+    [clientId, apiUrl]
+  );
 
   const cancelSubscription = async () => {
     if (!clientId) return;
@@ -782,7 +922,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                         <UserCog className="w-5 h-5" />
                         Human agents ({humanAgents.filter((ha) => !ha.isClient).length})
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
                         {humanAgents.map((ha) => (
                           <Card key={ha._id}>
                             <CardContent className="p-4">
@@ -839,6 +979,57 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                             </CardContent>
                           </Card>
                         ))}
+
+                        {/* Same card style as human agent cards — sits right of deskmoz */}
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center mb-3">
+                              <Avatar>
+                                <AvatarFallback className="bg-blue-100 text-blue-600">
+                                  <Zap className="w-5 h-5" />
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="ml-3 min-w-0">
+                                <h4 className="font-medium truncate">OpenAI Usage</h4>
+                                <p className="text-sm text-muted-foreground truncate">This client</p>
+                              </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Tokens</span>
+                                <span className="font-medium tabular-nums">{formatNumber(openAIUsageTotal.totalTokens)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Input Tokens</span>
+                                <span className="font-medium text-blue-600 tabular-nums">{formatNumber(openAIUsageTotal.inputTokens)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Output Tokens</span>
+                                <span className="font-medium text-blue-600 tabular-nums">{formatNumber(openAIUsageTotal.outputTokens)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Cache Tokens</span>
+                                <span className="font-medium text-blue-600 tabular-nums">{formatNumber(openAIUsageTotal.cacheTokens)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Input Cost</span>
+                                <span className="font-medium text-blue-600 tabular-nums">{formatCurrency(openAIUsageTotal.inputCost)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Output Cost</span>
+                                <span className="font-medium text-blue-600 tabular-nums">{formatCurrency(openAIUsageTotal.outputCost)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Cache Cost</span>
+                                <span className="font-medium text-blue-600 tabular-nums">{formatCurrency(openAIUsageTotal.cacheCost)}</span>
+                              </div>
+                              <div className="flex justify-between border-t pt-2 mt-1">
+                                <span className="text-muted-foreground">Total Cost</span>
+                                <span className="font-medium tabular-nums">{formatCurrency(openAIUsageTotal.totalCost)}</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
                       </div>
                       {!agentsLoading && humanAgents.length === 0 && (
                         <p className="text-sm text-muted-foreground py-4">No human agents for this account.</p>
@@ -851,49 +1042,90 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                         AI chatbots ({aiAgents.length})
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {aiAgents.map((bot) => (
-                          <Card key={bot._id}>
-                            <CardContent className="p-4">
-                              <div className="flex items-center mb-3">
-                                <Avatar>
-                                  <AvatarFallback className="bg-blue-100 text-blue-600">
-                                    <Bot className="w-5 h-5" />
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="ml-3 min-w-0">
-                                  <h4 className="font-medium truncate">{bot.agentName || 'Unnamed bot'}</h4>
-                                  <p className="text-sm text-muted-foreground truncate">{bot.website_name || '—'}</p>
-                                </div>
-                              </div>
-                              <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Agent (AI) id</span>
-                                  <span className="font-mono text-xs truncate max-w-[140px]" title={bot._id}>{bot._id}</span>
-                                </div>
-                                {bot.email ? (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Contact email</span>
-                                    <span className="truncate max-w-[180px]">{bot.email}</span>
+                        {aiAgents.map((bot) => {
+                          const usage = bot.openAIUsage || EMPTY_USAGE;
+                          const embedding = bot.embeddingUsage || EMPTY_USAGE;
+                          return (
+                            <Card
+                              key={bot._id}
+                              className="cursor-pointer hover:border-blue-300 hover:shadow-sm transition-colors"
+                              onClick={() => openBotUsagePanel(bot)}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-center mb-3">
+                                  <Avatar>
+                                    <AvatarFallback className="bg-blue-100 text-blue-600">
+                                      <Bot className="w-5 h-5" />
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="ml-3 min-w-0 flex-1">
+                                    <h4 className="font-medium truncate">{bot.agentName || 'Unnamed bot'}</h4>
+                                    <p className="text-sm text-muted-foreground truncate">{bot.website_name || '—'}</p>
                                   </div>
-                                ) : null}
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Active</span>
-                                  <span className={bot.isActive ? 'text-green-600' : 'text-muted-foreground'}>
-                                    {bot.isActive ? 'Yes' : 'No'}
-                                  </span>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 shrink-0 text-blue-600"
+                                    title="View chat conversation usage"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openBotUsagePanel(bot);
+                                    }}
+                                  >
+                                    <Zap className="w-4 h-4" />
+                                  </Button>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Live human support</span>
-                                  <span>{bot.liveAgentSupport ? 'On' : 'Off'}</span>
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Agent (AI) id</span>
+                                    <span className="font-mono text-xs truncate max-w-[140px]" title={bot._id}>{bot._id}</span>
+                                  </div>
+                                  {bot.email ? (
+                                    <div className="flex justify-between">
+                                      <span className="text-muted-foreground">Contact email</span>
+                                      <span className="truncate max-w-[180px]">{bot.email}</span>
+                                    </div>
+                                  ) : null}
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Active</span>
+                                    <span className={bot.isActive ? 'text-green-600' : 'text-muted-foreground'}>
+                                      {bot.isActive ? 'Yes' : 'No'}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Live human support</span>
+                                    <span>{bot.liveAgentSupport ? 'On' : 'Off'}</span>
+                                  </div>
+                                  <div className="flex justify-between text-muted-foreground">
+                                    <span>Created</span>
+                                    <span>{formatDate(bot.createdAt)}</span>
+                                  </div>
+                                  <div className="rounded-md border bg-blue-50/60 border-blue-100 px-2.5 py-2 mt-2 space-y-1">
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-blue-800">Total tokens</span>
+                                      <span className="font-semibold text-blue-900 tabular-nums">{formatNumber(usage.totalTokens)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-blue-800">Total cost</span>
+                                      <span className="font-semibold text-blue-900 tabular-nums">{formatCurrency(usage.totalCost)}</span>
+                                    </div>
+                                    <div className="border-t border-blue-100 pt-1 mt-1 space-y-1">
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-blue-800">Website training (embedding) tokens</span>
+                                        <span className="font-semibold text-blue-900 tabular-nums">{formatNumber(embedding.totalTokens)}</span>
+                                      </div>
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-blue-800">Website training (embedding) cost</span>
+                                        <span className="font-semibold text-blue-900 tabular-nums">{formatCurrency(embedding.totalCost)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex justify-between text-muted-foreground">
-                                  <span>Created</span>
-                                  <span>{formatDate(bot.createdAt)}</span>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                       {!agentsLoading && aiAgents.length === 0 && (
                         <p className="text-sm text-muted-foreground py-4">No AI chatbots for this account.</p>
@@ -906,6 +1138,126 @@ const ClientDetailsView = ({ clientId, onBack }) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Portal: opaque modal above all page content (avoids transparent bleed-through) */}
+      {selectedBot &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4"
+            style={{ isolation: 'isolate' }}
+            onClick={closeBotUsagePanel}
+            role="dialog"
+            aria-modal="true"
+            aria-label="AI chatbot usage"
+          >
+            <div
+              className="bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200 bg-white shrink-0">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-lg truncate flex items-center gap-2 text-slate-900">
+                    <Zap className="w-4 h-4 text-blue-600 shrink-0" />
+                    {selectedBot.agentName || 'AI chatbot'} — usage
+                  </h3>
+                  <p className="text-sm text-slate-500 truncate">
+                    {selectedBot.website_name || selectedBot._id}
+                  </p>
+                </div>
+                <Button type="button" size="icon" variant="ghost" onClick={closeBotUsagePanel}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="overflow-y-auto px-5 py-4 space-y-4 bg-white">
+                {botUsageLoading ? (
+                  <div className="text-center py-10">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-sm text-slate-500">Loading conversations…</p>
+                  </div>
+                ) : botUsageError ? (
+                  <p className="text-sm text-red-600">{botUsageError}</p>
+                ) : (
+                  <>
+                    <OpenAIUsageMetricsBox
+                      title="All conversations total (chat)"
+                      usage={conversationsTotals}
+                      showEmbedding
+                    />
+
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2 text-slate-900">
+                        Conversations ({botConversations.length})
+                      </h4>
+                      {botConversations.length === 0 ? (
+                        <p className="text-sm text-slate-500 py-4">
+                          No conversation usage yet for this chatbot.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {botConversations.map((conv) => {
+                            const isOpen =
+                              selectedConversation?.conversationId === conv.conversationId;
+                            return (
+                              <div
+                                key={conv.conversationId}
+                                className="rounded-lg border border-slate-200 bg-white p-3 space-y-2"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="min-w-0 flex-1 space-y-0.5">
+                                    <div className="font-medium text-sm truncate text-slate-900">
+                                      {conv.visitorName || 'Unknown visitor'}
+                                    </div>
+                                    <div
+                                      className="font-mono text-[11px] text-slate-500 truncate"
+                                      title={conv.conversationId}
+                                    >
+                                      {conv.conversationId}
+                                    </div>
+                                    <div className="text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
+                                      <span>{formatNumber(conv.totalTokens)} chat tok</span>
+                                      <span>{formatCurrency(conv.totalCost)}</span>
+                                      <span>
+                                        emb {formatNumber(conv.embeddingInputTokens || 0)} tok
+                                      </span>
+                                      <span>
+                                        {formatCurrency(conv.embeddingInputCost || 0)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant={isOpen ? 'default' : 'outline'}
+                                    className="h-8 w-8 shrink-0"
+                                    title="Show token & cost breakdown"
+                                    onClick={() =>
+                                      setSelectedConversation(isOpen ? null : conv)
+                                    }
+                                  >
+                                    <Zap className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                                {isOpen && (
+                                  <OpenAIUsageMetricsBox
+                                    title="Conversation tokens & cost"
+                                    usage={conv}
+                                    showEmbedding
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
