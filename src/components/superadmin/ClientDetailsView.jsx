@@ -63,6 +63,26 @@ const formatNumber = (num) => {
   return n.toLocaleString();
 };
 
+/** Grand total = input + output + cache + embedding (tokens or cost). */
+const sumOpenAIWithEmbedding = (chat, embedding, kind) => {
+  const c = chat || EMPTY_USAGE;
+  const e = embedding || EMPTY_USAGE;
+  if (kind === 'tokens') {
+    return (
+      (Number(c.inputTokens) || 0) +
+      (Number(c.outputTokens) || 0) +
+      (Number(c.cacheTokens) || 0) +
+      (Number(e.totalTokens) || Number(e.inputTokens) || 0)
+    );
+  }
+  return (
+    (Number(c.inputCost) || 0) +
+    (Number(c.outputCost) || 0) +
+    (Number(c.cacheCost) || 0) +
+    (Number(e.totalCost) || Number(e.inputCost) || 0)
+  );
+};
+
 /** Compact metrics box: input/output/cache tokens + costs (+ optional embedding) */
 const OpenAIUsageMetricsBox = ({ title, usage, className = '', showEmbedding = false }) => {
   const u = usage || EMPTY_USAGE;
@@ -1009,8 +1029,14 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                             <div className="space-y-2 text-sm">
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Tokens</span>
-                                <span className="font-medium tabular-nums">{formatNumber(openAIUsageTotal.totalTokens)}</span>
+                                <span className="font-medium tabular-nums">
+                                  {formatNumber(
+                                    sumOpenAIWithEmbedding(openAIUsageTotal, embeddingUsageTotal, 'tokens')
+                                  )}
+                                </span>
                               </div>
+                              <div className="space-y-2 text-sm">
+                            
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Input Tokens</span>
                                 <span className="font-medium text-blue-600 tabular-nums">{formatNumber(openAIUsageTotal.inputTokens)}</span>
@@ -1024,6 +1050,20 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                 <span className="font-medium text-blue-600 tabular-nums">{formatNumber(openAIUsageTotal.cacheTokens)}</span>
                               </div>
                               <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Embedding Tokens</span>
+                                <span className="font-medium text-blue-600 tabular-nums">{formatNumber(embeddingUsageTotal.totalTokens)}</span>
+                              </div>
+                              <br />
+                                <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Cost</span>
+                                <span className="font-medium tabular-nums">
+                                  {formatCurrency(
+                                    sumOpenAIWithEmbedding(openAIUsageTotal, embeddingUsageTotal, 'cost')
+                                  )}
+                                </span>
+                              </div>
+                              </div>
+                              <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Input Cost</span>
                                 <span className="font-medium text-blue-600 tabular-nums">{formatCurrency(openAIUsageTotal.inputCost)}</span>
                               </div>
@@ -1035,18 +1075,11 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                 <span className="text-muted-foreground">Total Cache Cost</span>
                                 <span className="font-medium text-blue-600 tabular-nums">{formatCurrency(openAIUsageTotal.cacheCost)}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Total Embedding Tokens</span>
-                                <span className="font-medium text-blue-600 tabular-nums">{formatNumber(embeddingUsageTotal.totalTokens)}</span>
-                              </div>
+                            
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Embedding Cost</span>
                                 <span className="font-medium text-blue-600 tabular-nums">{formatCurrency(embeddingUsageTotal.totalCost)}</span>
-                              </div>
-                              <div className="flex justify-between border-t pt-2 mt-1">
-                                <span className="text-muted-foreground">Total Cost</span>
-                                <span className="font-medium tabular-nums">{formatCurrency(openAIUsageTotal.totalCost)}</span>
-                              </div>
+                              </div>                             
                             </div>
                           </CardContent>
                         </Card>
@@ -1124,11 +1157,15 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                   <div className="rounded-md border bg-blue-50/60 border-blue-100 px-3 py-2.5 mt-2 space-y-1.5">
                                     <div className="flex justify-between text-sm">
                                       <span className="text-blue-800">Total tokens</span>
-                                      <span className="font-semibold text-blue-900 tabular-nums">{formatNumber(usage.totalTokens)}</span>
+                                      <span className="font-semibold text-blue-900 tabular-nums">
+                                        {formatNumber(sumOpenAIWithEmbedding(usage, embedding, 'tokens'))}
+                                      </span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                       <span className="text-blue-800">Total cost</span>
-                                      <span className="font-semibold text-blue-900 tabular-nums">{formatCurrency(usage.totalCost)}</span>
+                                      <span className="font-semibold text-blue-900 tabular-nums">
+                                        {formatCurrency(sumOpenAIWithEmbedding(usage, embedding, 'cost'))}
+                                      </span>
                                     </div>
                                     <div className="border-t border-blue-100 pt-1.5 mt-1.5 space-y-1.5">
                                       <div className="flex justify-between text-sm">
