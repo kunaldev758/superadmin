@@ -131,6 +131,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   const [aiAgents, setAiAgents] = useState([]);
   const [humanAgents, setHumanAgents] = useState([]);
   const [openAIUsageTotal, setOpenAIUsageTotal] = useState(EMPTY_USAGE);
+  const [embeddingUsageTotal, setEmbeddingUsageTotal] = useState(EMPTY_USAGE);
   const [loading, setLoading] = useState(true);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -195,6 +196,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
         setAiAgents(data.data?.aiAgents || []);
         setHumanAgents(data.data?.humanAgents || []);
         setOpenAIUsageTotal(data.data?.openAIUsageTotal || EMPTY_USAGE);
+        setEmbeddingUsageTotal(data.data?.embeddingUsageTotal || EMPTY_USAGE);
       } else {
         console.error('Failed to fetch client agents');
       }
@@ -1032,6 +1034,14 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Cache Cost</span>
                                 <span className="font-medium text-blue-600 tabular-nums">{formatCurrency(openAIUsageTotal.cacheCost)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Embedding Tokens</span>
+                                <span className="font-medium text-blue-600 tabular-nums">{formatNumber(embeddingUsageTotal.totalTokens)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total Embedding Cost</span>
+                                <span className="font-medium text-blue-600 tabular-nums">{formatCurrency(embeddingUsageTotal.totalCost)}</span>
                               </div>
                               <div className="flex justify-between border-t pt-2 mt-1">
                                 <span className="text-muted-foreground">Total Cost</span>
