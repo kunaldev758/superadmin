@@ -12,7 +12,7 @@ import AiModelCategoryPanel, {
 } from './AiModelCategoryPanel';
 
 const STATUS_OPTIONS = ['active', 'inactive'];
-const PROVIDER_OPTIONS = ['openai', 'ollama', 'groq'];
+const PROVIDER_OPTIONS = ['openai', 'groq'];
 const AI_MODELS_BASE_ENDPOINT = '/ai-models';
 const DELETE_CONFIRM_TEXT = 'model-delete';
 
@@ -98,7 +98,6 @@ function ModelFormModal({
   const showEmbeddingDimension = selectedCategoryNames.some((n) =>
     n.includes('embedding')
   );
-  const showOllamaFields = formData.provider === 'ollama';
   const showApiKeyField =
     formData.provider === 'groq' || formData.provider === 'openai';
 
@@ -286,26 +285,6 @@ function ModelFormModal({
                   placeholder="1536"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-              </div>
-            )}
-
-            {showOllamaFields && (
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Base URL (optional override)
-                </label>
-                <input
-                  type="text"
-                  value={formData.providerConfig.baseUrl}
-                  onChange={(e) => updateProviderConfig('baseUrl', e.target.value)}
-                  placeholder="Leave empty to use OLLAMA_BASE_URL from server env"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Local vs production URLs should live in each server&apos;s{' '}
-                  <code className="bg-gray-100 px-1 rounded">OLLAMA_BASE_URL</code>. Use this
-                  only as a fallback override.
-                </p>
               </div>
             )}
 
