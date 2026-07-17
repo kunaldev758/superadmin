@@ -377,15 +377,31 @@ const SuperAdminDashboard = ({ onNavigate, superAdminUser, onLogout }) => {
           </Card>
         </div>
 
-        {/* OpenAI Usage by Type */}
+        {/* OpenAI Usage by Type (dynamic categories from usage rows) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[
-            { key: 'chat', label: 'Chat', icon: MessageCircle, color: 'text-blue-500' },
-            { key: 'embedding', label: 'Embedding', icon: Database, color: 'text-purple-500' },
-            { key: 'intent', label: 'Intent', icon: Activity, color: 'text-green-500' },
-            { key: 'open-source', label: 'Open Source', icon: Bot, color: 'text-teal-500' },
-          ].map(({ key, label, icon: Icon, color }) => {
-            const usage = dashboardData?.openAIUsage?.byType?.[key] || {};
+          {Object.entries(dashboardData?.openAIUsage?.byType || {})
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, usage]) => {
+            const label = key
+              .split(/[-_]/)
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' ');
+            const Icon =
+              key === 'embedding'
+                ? Database
+                : key === 'intent'
+                  ? Activity
+                  : key.includes('chat')
+                    ? MessageCircle
+                    : Bot;
+            const color =
+              key === 'embedding'
+                ? 'text-purple-500'
+                : key === 'intent'
+                  ? 'text-green-500'
+                  : key.includes('chat')
+                    ? 'text-blue-500'
+                    : 'text-teal-500';
             return (
               <Card key={key} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
