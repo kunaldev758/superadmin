@@ -152,6 +152,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
   const [humanAgents, setHumanAgents] = useState([]);
   const [openAIUsageTotal, setOpenAIUsageTotal] = useState(EMPTY_USAGE);
   const [embeddingUsageTotal, setEmbeddingUsageTotal] = useState(EMPTY_USAGE);
+  const [websiteClassifierUsageTotal, setWebsiteClassifierUsageTotal] = useState(EMPTY_USAGE);
   const [loading, setLoading] = useState(true);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -217,6 +218,9 @@ const ClientDetailsView = ({ clientId, onBack }) => {
         setHumanAgents(data.data?.humanAgents || []);
         setOpenAIUsageTotal(data.data?.openAIUsageTotal || EMPTY_USAGE);
         setEmbeddingUsageTotal(data.data?.embeddingUsageTotal || EMPTY_USAGE);
+        setWebsiteClassifierUsageTotal(
+          data.data?.websiteClassifierUsageTotal || EMPTY_USAGE
+        );
       } else {
         console.error('Failed to fetch client agents');
       }
@@ -1053,6 +1057,12 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                 <span className="text-muted-foreground">Total Embedding Tokens</span>
                                 <span className="font-medium text-blue-600 tabular-nums">{formatNumber(embeddingUsageTotal.totalTokens)}</span>
                               </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Website classifier LLM calls</span>
+                                <span className="font-medium text-blue-600 tabular-nums">
+                                  {formatNumber(websiteClassifierUsageTotal.totalRequests)}
+                                </span>
+                              </div>
                               <br />
                                 <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Cost</span>
@@ -1098,6 +1108,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                         {aiAgents.map((bot) => {
                           const usage = bot.openAIUsage || EMPTY_USAGE;
                           const embedding = bot.embeddingUsage || EMPTY_USAGE;
+                          const websiteClassifier = bot.websiteClassifierUsage || EMPTY_USAGE;
                           return (
                             <Card
                               key={bot._id}
@@ -1175,6 +1186,12 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                       <div className="flex justify-between text-sm">
                                         <span className="text-blue-800">Website training (embedding) cost</span>
                                         <span className="font-semibold text-blue-900 tabular-nums">{formatCurrency(embedding.totalCost)}</span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-blue-800">Website classifier LLM calls</span>
+                                        <span className="font-semibold text-blue-900 tabular-nums">
+                                          {formatNumber(websiteClassifier.totalRequests)}
+                                        </span>
                                       </div>
                                     </div>
                                   </div>
