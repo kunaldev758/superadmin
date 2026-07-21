@@ -380,6 +380,7 @@ const SuperAdminDashboard = ({ onNavigate, superAdminUser, onLogout }) => {
         {/* OpenAI Usage by Type (dynamic categories from usage rows) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {Object.entries(dashboardData?.openAIUsage?.byType || {})
+          .filter(([key]) => key !== 'unknown')
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([key, usage]) => {
             const label = key
