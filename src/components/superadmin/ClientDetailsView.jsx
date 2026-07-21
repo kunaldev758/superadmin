@@ -1026,7 +1026,7 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                 </AvatarFallback>
                               </Avatar>
                               <div className="ml-3 min-w-0">
-                                <h4 className="font-medium truncate">OpenAI Usage</h4>
+                                <h4 className="font-medium truncate">OpenAI Usage Token </h4>
                                 <p className="text-sm text-muted-foreground truncate">This client</p>
                               </div>
                             </div>
@@ -1063,7 +1063,49 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                   {formatNumber(websiteClassifierUsageTotal.totalRequests)}
                                 </span>
                               </div>
-                              <br />
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Website classifier input tokens</span>
+                                <span className="font-medium text-blue-600 tabular-nums">
+                                  {formatNumber(websiteClassifierUsageTotal.inputTokens)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Website classifier output tokens</span>
+                                <span className="font-medium text-blue-600 tabular-nums">
+                                  {formatNumber(websiteClassifierUsageTotal.outputTokens)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Website classifier cache tokens</span>
+                                <span className="font-medium text-blue-600 tabular-nums">
+                                  {formatNumber(websiteClassifierUsageTotal.cacheTokens)}
+                                </span>
+                              </div>
+                           
+                              </div>
+                            
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center mb-3">
+                              <Avatar>
+                                <AvatarFallback className="bg-blue-100 text-blue-600">
+                                  <Zap className="w-5 h-5" />
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="ml-3 min-w-0">
+                                <h4 className="font-medium truncate">OpenAI Usage Cost</h4>
+                                <p className="text-sm text-muted-foreground truncate">This client</p>
+                              </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                             
+                              <div className="space-y-2 text-sm">
+                            
+                              
                                 <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Cost</span>
                                 <span className="font-medium tabular-nums">
@@ -1089,7 +1131,25 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total Embedding Cost</span>
                                 <span className="font-medium text-blue-600 tabular-nums">{formatCurrency(embeddingUsageTotal.totalCost)}</span>
-                              </div>                             
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Website classifier input cost</span>
+                                <span className="font-medium text-blue-600 tabular-nums">
+                                  {formatCurrency(websiteClassifierUsageTotal.inputCost)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Website classifier output cost</span>
+                                <span className="font-medium text-blue-600 tabular-nums">
+                                  {formatCurrency(websiteClassifierUsageTotal.outputCost)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Website classifier cache cost</span>
+                                <span className="font-medium text-blue-600 tabular-nums">
+                                  {formatCurrency(websiteClassifierUsageTotal.cacheCost)}
+                                </span>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -1191,6 +1251,42 @@ const ClientDetailsView = ({ clientId, onBack }) => {
                                         <span className="text-blue-800">Website classifier LLM calls</span>
                                         <span className="font-semibold text-blue-900 tabular-nums">
                                           {formatNumber(websiteClassifier.totalRequests)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-blue-800">Website classifier input tokens</span>
+                                        <span className="font-semibold text-blue-900 tabular-nums">
+                                          {formatNumber(websiteClassifier.inputTokens)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-blue-800">Website classifier output tokens</span>
+                                        <span className="font-semibold text-blue-900 tabular-nums">
+                                          {formatNumber(websiteClassifier.outputTokens)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-blue-800">Website classifier cache tokens</span>
+                                        <span className="font-semibold text-blue-900 tabular-nums">
+                                          {formatNumber(websiteClassifier.cacheTokens)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-blue-800">Website classifier input cost</span>
+                                        <span className="font-semibold text-blue-900 tabular-nums">
+                                          {formatCurrency(websiteClassifier.inputCost)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-blue-800">Website classifier output cost</span>
+                                        <span className="font-semibold text-blue-900 tabular-nums">
+                                          {formatCurrency(websiteClassifier.outputCost)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-blue-800">Website classifier cache cost</span>
+                                        <span className="font-semibold text-blue-900 tabular-nums">
+                                          {formatCurrency(websiteClassifier.cacheCost)}
                                         </span>
                                       </div>
                                     </div>
